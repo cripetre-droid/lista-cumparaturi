@@ -1,0 +1,13 @@
+# configurare cu parole - nu ajunge niciodata in GitHub
+api/config.php
+
+# rezultate de test si arhive de deploy
+dev/capturi/
+pachet/
+*.zip
+
+# gunoi de sistem
+Thumbs.db
+desktop.ini
+.DS_Store
+node_modules/

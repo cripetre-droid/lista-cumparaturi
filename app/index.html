@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ro" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
+<meta name="theme-color" content="#0D47A1">
+<meta name="description" content="Lista de cumparaturi - liste partajate, cautare, undo, functioneaza si offline.">
+<title>Lista de cumpărături</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ================= ECRAN AUTENTIFICARE ================= -->
+<section id="auth" class="screen auth hidden">
+  <div class="auth-card">
+    <div class="auth-logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="44" height="44"><path fill="currentColor" d="M7 18a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 18zm10 0a2 2 0 1 0 .001 4.001A2 2 0 0 0 17 18zM3 3h2.2l.9 2H21a1 1 0 0 1 .96 1.28l-2.3 8A2 2 0 0 1 17.74 16H8.1a2 2 0 0 1-1.96-1.6L4.2 5H3a1 1 0 0 1 0-2z"/></svg>
+    </div>
+    <h1>Lista de cumpărături</h1>
+    <p class="auth-sub" id="authSub">Intră în cont ca să ai listele pe toate telefoanele.</p>
+
+    <form id="authForm" autocomplete="on">
+      <label class="field" id="fieldName" hidden>
+        <span>Nume</span>
+        <input type="text" id="inName" autocomplete="name" placeholder="Cum te cheamă">
+      </label>
+      <label class="field">
+        <span>E-mail</span>
+        <input type="email" id="inEmail" autocomplete="username" required placeholder="nume@exemplu.ro">
+      </label>
+      <label class="field">
+        <span>Parolă</span>
+        <input type="password" id="inPass" autocomplete="current-password" required minlength="8" placeholder="minim 8 caractere">
+      </label>
+      <label class="field" id="fieldCode" hidden>
+        <span>Cod de înregistrare</span>
+        <input type="text" id="inCode" placeholder="dacă ți s-a cerut unul">
+      </label>
+      <p class="auth-error" id="authError" hidden></p>
+      <button type="submit" class="btn-primary" id="authSubmit">Intră în cont</button>
+    </form>
+
+    <button type="button" class="btn-link" id="toggleMode">Nu am cont — vreau să-mi fac unul</button>
+  </div>
+</section>
+
+<!-- ================= ECRAN LISTE ================= -->
+<section id="screenLists" class="screen hidden">
+  <header class="appbar">
+    <div class="appbar-main">
+      <h1 class="appbar-title">Listele mele</h1>
+      <div class="appbar-actions">
+        <button class="icon-btn" id="btnUndoLists" title="Anulează (Ctrl+Z)" hidden>
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62A7.98 7.98 0 0 1 12.5 11c3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.53 17.15 8 12.5 8z"/></svg>
+        </button>
+        <button class="icon-btn" id="btnSearchLists" title="Caută">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        </button>
+        <button class="icon-btn" id="btnMenuLists" title="Meniu">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="searchbar" id="searchbarLists" hidden>
+      <svg viewBox="0 0 24 24" class="search-ico"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <input type="search" id="qLists" placeholder="Caută în liste și produse..." autocomplete="off" enterkeyhint="search">
+      <button class="icon-btn small" id="btnClearQLists" title="Șterge căutarea">
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="content" id="listsContent">
+    <div id="listsWrap" class="cards"></div>
+    <div class="empty" id="listsEmpty" hidden>
+      <svg viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM7 12h10v2H7v-2zm0-4h10v2H7V8zm0 8h7v2H7v-2z"/></svg>
+      <p>Nicio listă încă.<br>Apasă <b>+</b> ca să faci prima listă.</p>
+    </div>
+    <div id="listsSearchResults" class="search-results" hidden></div>
+  </main>
+
+  <button class="fab" id="fabAddList" title="Listă nouă">
+    <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+  </button>
+</section>
+
+<!-- ================= ECRAN ARTICOLE ================= -->
+<section id="screenItems" class="screen hidden">
+  <header class="appbar">
+    <div class="appbar-main">
+      <button class="icon-btn" id="btnBack" title="Înapoi">
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+      </button>
+      <h1 class="appbar-title" id="itemsTitle">Listă</h1>
+      <div class="appbar-actions">
+        <button class="icon-btn" id="btnUndoItems" title="Anulează (Ctrl+Z)" hidden>
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62A7.98 7.98 0 0 1 12.5 11c3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.53 17.15 8 12.5 8z"/></svg>
+        </button>
+        <button class="icon-btn" id="btnSearchItems" title="Caută">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        </button>
+        <button class="icon-btn" id="btnShare" title="Partajează lista">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81A3 3 0 1 0 6 15c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.92-2.92z"/></svg>
+        </button>
+        <button class="icon-btn" id="btnMenuItems" title="Meniu">
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="progress-strip"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="searchbar" id="searchbarItems" hidden>
+      <svg viewBox="0 0 24 24" class="search-ico"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      <input type="search" id="qItems" placeholder="Caută produs în listă..." autocomplete="off" enterkeyhint="search">
+      <button class="icon-btn small" id="btnClearQItems" title="Șterge căutarea">
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="content items-content" id="itemsContent">
+    <div class="stats" id="itemsStats"></div>
+    <div id="itemsWrap" class="items"></div>
+    <div class="empty" id="itemsEmpty" hidden>
+      <svg viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M7 18a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 18zm10 0a2 2 0 1 0 .001 4.001A2 2 0 0 0 17 18zM3 3h2.2l.9 2H21a1 1 0 0 1 .96 1.28l-2.3 8A2 2 0 0 1 17.74 16H8.1a2 2 0 0 1-1.96-1.6L4.2 5H3a1 1 0 0 1 0-2z"/></svg>
+      <p>Lista e goală.<br>Scrie primul produs mai jos.</p>
+    </div>
+  </main>
+
+  <div class="composer" id="composer">
+    <div class="suggestions" id="suggestions" hidden></div>
+    <div class="composer-row">
+      <input type="text" id="newItem" placeholder="Scrie aici (ex: 2 kg cartofi)" autocomplete="off" enterkeyhint="done">
+      <button class="icon-btn qty-btn" id="btnQty" title="Cantitate">
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 5h18v2H3V5zm0 6h12v2H3v-2zm0 6h8v2H3v-2z"/></svg>
+      </button>
+      <button class="add-btn" id="btnAdd" title="Adaugă">
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      </button>
+    </div>
+    <div class="qty-row" id="qtyRow" hidden>
+      <input type="text" id="newQty" inputmode="decimal" placeholder="cant." maxlength="8">
+      <div class="unit-chips" id="unitChips"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ELEMENTE COMUNE ================= -->
+<div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true"></div>
+
+<div class="dialog-backdrop" id="dialogBackdrop" hidden></div>
+<div class="dialog" id="dialog" hidden role="dialog" aria-modal="true"></div>
+
+<div class="snackbar" id="snackbar" hidden>
+  <span id="snackText"></span>
+  <button id="snackAction" type="button">ANULEAZĂ</button>
+</div>
+
+<div class="sync-badge" id="syncBadge" hidden></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Protejeaza fisierele de configurare si jurnalele
+<FilesMatch "^(config\.php|config\.example\.php|.*\.log|.*\.sql)$">
+    Require all denied
+</FilesMatch>
+
+# Fara listare de directoare
+Options -Indexes
+
+# Trimite antetul Authorization catre PHP (unele configurari cPanel il taie)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>

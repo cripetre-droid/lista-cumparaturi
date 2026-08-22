@@ -91,8 +91,14 @@ function snapshot(kind, id) {
 
 function restore(snap) {
   const dst = snap.kind === 'list' ? state.lists : state.items;
-  if (snap.data === null) delete dst[snap.id];
-  else dst[snap.id] = JSON.parse(JSON.stringify(snap.data));
+  if (snap.data === null) {
+    // entitatea nu exista inainte de modificare: nu o stergem de tot, ci o marcam
+    // ca stearsa, ca stergerea sa ajunga si la celelalte telefoane
+    const cur = dst[snap.id];
+    if (cur) { cur.deleted = 1; cur.updated_at = now(); cur.dirty = 1; }
+  } else {
+    dst[snap.id] = JSON.parse(JSON.stringify(snap.data));
+  }
 }
 
 /**
@@ -170,7 +176,6 @@ export function undo() {
     restore(s);
     const dst = s.kind === 'list' ? state.lists : state.items;
     if (dst[s.id]) { dst[s.id].updated_at = now(); dst[s.id].dirty = 1; }
-    else markTombstone(s.kind, s.id);
   }
   redoStack.push(tx);
   save();
@@ -184,18 +189,10 @@ export function redo() {
     restore(s);
     const dst = s.kind === 'list' ? state.lists : state.items;
     if (dst[s.id]) { dst[s.id].updated_at = now(); dst[s.id].dirty = 1; }
-    else markTombstone(s.kind, s.id);
   }
   undoStack.push(tx);
   save();
   return tx.label;
-}
-
-/* Daca undo-ul sterge o entitate care a ajuns deja pe server, trebuie sa
-   ramana o "piatra de mormant" ca stergerea sa se propage si la ceilalti. */
-function markTombstone(kind, id) {
-  const dst = kind === 'list' ? state.lists : state.items;
-  dst[id] = { id, deleted: 1, updated_at: now(), dirty: 1, name: '', position: 0 };
 }
 
 export function clearUndo() {

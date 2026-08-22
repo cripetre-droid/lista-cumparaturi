@@ -31,6 +31,8 @@ if (count($inLists) > 500 || count($inItems) > 5000) {
 $pdo = db();
 $pdo->beginTransaction();
 
+try {
+
 $acc = array_flip(accessible_list_ids($me));
 
 /* ---------- 1. modificarile venite de la client: liste ---------- */
@@ -110,9 +112,15 @@ foreach ($inItems as $it) {
     $del  = !empty($it['deleted']) ? 1 : 0;
     $pos  = (float) ($it['position'] ?? 0);
 
-    $st = $pdo->prepare('SELECT id FROM items WHERE id = ?');
+    $st = $pdo->prepare('SELECT list_id FROM items WHERE id = ?');
     $st->execute([$id]);
-    if ($st->fetchColumn()) {
+    $listaVeche = $st->fetchColumn();
+    if ($listaVeche !== false) {
+        // articolul exista deja: trebuie sa avem acces si la lista in care se afla acum,
+        // altfel oricine ar putea muta la el un articol al altcuiva
+        if (!isset($acc[$listaVeche])) {
+            continue;
+        }
         $upd = $pdo->prepare(
             'UPDATE items SET list_id = ?, name = ?, qty = ?, unit = ?, note = ?, done = ?, position = ?, deleted = ?, updated_at = ?
              WHERE id = ?'
@@ -130,7 +138,12 @@ foreach ($inItems as $it) {
     }
 }
 
-$pdo->commit();
+    $pdo->commit();
+} catch (Throwable $e) {
+    $pdo->rollBack();
+    error_log('sync: ' . $e->getMessage());
+    fail('sincronizare_esuata', 500);
+}
 
 /* ---------- 3. ce trimitem inapoi ---------- */
 $ids = accessible_list_ids($me);

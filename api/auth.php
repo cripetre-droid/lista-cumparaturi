@@ -44,6 +44,7 @@ function issue_token(string $userId): string
 
 switch ($a) {
     case 'register': {
+        throttle_login();
         $c = cfg();
         if (empty($c['allow_signup'])) {
             fail('inregistrari_oprite', 403);
@@ -63,6 +64,7 @@ switch ($a) {
         $st = db()->prepare('SELECT 1 FROM users WHERE email = ?');
         $st->execute([$email]);
         if ($st->fetchColumn()) {
+            note_failed_login($email);
             fail('email_existent', 409);
         }
         $id = new_id();

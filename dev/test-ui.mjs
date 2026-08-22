@@ -251,6 +251,27 @@ await page.waitForTimeout(500);
 verifica(await page.isVisible('.item:has-text("Ciocolata")'), 'produsul adaugat de celalalt utilizator a ajuns aici');
 await shot(page, 'sincronizat-intre-utilizatori');
 
+console.log('15. Anularea unei adaugari ajunge si la celalalt utilizator');
+// utilizatorul 1 e in lista partajata "Mega"; adaug un produs, il las sa se sincronizeze,
+// apoi anulez. Anularea trebuie sa ajunga si la utilizatorul 2.
+await page.fill('#newItem', 'Produs de proba');
+await page.click('#btnAdd');
+await page.waitForTimeout(2600);
+await p2.reload({ waitUntil: 'networkidle' });
+await p2.waitForTimeout(2600);
+verifica(await p2.isVisible('.item:has-text("Produs de proba")'), 'produsul a ajuns la utilizatorul 2');
+
+await page.click('#btnUndoItems');
+await page.waitForTimeout(2600);
+verifica(!(await page.isVisible('.item:has-text("Produs de proba")')), 'produsul a disparut la utilizatorul 1');
+
+await p2.reload({ waitUntil: 'networkidle' });
+await p2.waitForTimeout(2600);
+const laDoi = await p2.isVisible('.item:has-text("Produs de proba")');
+verifica(!laDoi, 'anularea s-a propagat prin server la utilizatorul 2');
+await shot(page, 'undo-propagat-la-server');
+await p2.screenshot({ path: path.join(CAPTURI, '98-utilizator2-dupa-undo.png') });
+
 await browser.close();
 srv.kill();
 

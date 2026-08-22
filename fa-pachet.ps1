@@ -1,8 +1,9 @@
-# Face arhiva de urcat pe cPanel (Romarg), pentru https://vireo.ro/lista/
+# Face arhiva de urcat pe cPanel (Romarg), pentru https://lista.vireo.ro/
 #
 #   powershell -ExecutionPolicy Bypass -File fa-pachet.ps1
 #
-# Rezultat: pachet\lista.zip  ->  se urca in public_html/lista/ si se extrage acolo.
+# Rezultat: pachet\lista.zip  ->  se urca in /home/rvir1227/lista/ (document root-ul
+# subdomeniului lista.vireo.ro) si se extrage acolo.
 # In arhiva, caile sunt scrise cu "/" (altfel cPanel extrage aiurea pe Windows-zip).
 
 $ErrorActionPreference = 'Stop'
@@ -44,5 +45,5 @@ $arhiva.Dispose()
 $dim = [math]::Round((Get-Item $zip).Length / 1KB, 1)
 Write-Host ""
 Write-Host "Gata: $zip ($dim KB)" -ForegroundColor Green
-Write-Host "Urca-l in public_html/lista/ si extrage-l acolo (Extract din File Manager)."
+Write-Host "Urca-l in /home/rvir1227/lista/ si extrage-l acolo (Extract din File Manager)."
 Write-Host "ATENTIE: config.php nu e in arhiva - se creeaza o singura data pe server."

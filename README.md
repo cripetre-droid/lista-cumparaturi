@@ -5,7 +5,7 @@ Aplicație de telefon (PWA) pentru liste de cumpărături, cu **cont**, **liste 
 când revine semnalul.
 
 - Aplicația (partea vizibilă): `app/` — HTML/CSS/JS simplu, fără pași de compilare.
-- Serverul (API): `api/` — PHP 8 + MySQL, pentru găzduirea Romarg de pe `vireo.ro`.
+- Serverul (API): `api/` — PHP 8 + MySQL, pentru găzduirea Romarg (`lista.vireo.ro`).
 - Unelte de dezvoltare: `dev/` — server local de test și test automat al interfeței.
 
 ---
@@ -27,71 +27,79 @@ când revine semnalul.
 
 ---
 
-## Instalare pe vireo.ro (Romarg, cPanel)
+## Instalare pe lista.vireo.ro (Romarg, cPanel)
 
-### 1. Baza de date
+### 1. Subdomeniul
 
-În cPanel → **MySQL Databases**:
+cPanel → **Domains → Create A New Domain**:
 
-1. creează o bază de date, ex. `lista`;
+- domeniu: `lista.vireo.ro`
+- **debifează** „Share document root", ca să poți alege folderul
+- document root: `/home/rvir1227/lista`
+
+Apoi cPanel → **SSL/TLS Status** → *Run AutoSSL* pe noul subdomeniu.
+Certificatul e obligatoriu: fără HTTPS, telefonul nu instalează aplicația și nu merge offline.
+
+### 2. Baza de date
+
+cPanel → **MySQL Databases**:
+
+1. creează baza, ex. `lista` (devine `rvir1227_lista`);
 2. creează un utilizator cu o parolă puternică;
 3. adaugă utilizatorul la bază cu **ALL PRIVILEGES**.
 
-Notează numele complete (cPanel le prefixează cu contul, ex. `vireoro_lista`).
-
-### 2. Fișierele
+### 3. Fișierele
 
 ```
 powershell -ExecutionPolicy Bypass -File fa-pachet.ps1
 ```
 
-Rezultă `pachet\lista.zip`. În **File Manager**:
-
-1. intră în `public_html`, creează folderul `lista`;
-2. urcă `lista.zip` acolo și dă **Extract**;
-3. șterge arhiva după extragere.
+Rezultă `pachet\lista.zip`. În **File Manager**, intră în `/home/rvir1227/lista`,
+urcă arhiva acolo, dă **Extract**, apoi șterge arhiva.
 
 Structura pe server trebuie să arate așa:
 
 ```
-public_html/lista/index.html
-public_html/lista/css/…  js/…  icons/…
-public_html/lista/api/*.php
+/home/rvir1227/lista/index.html
+/home/rvir1227/lista/css/…  js/…  icons/…
+/home/rvir1227/lista/api/*.php
 ```
 
-### 3. Configurarea serverului
+### 4. Configurarea serverului
 
-În `public_html/lista/api/` copiază `config.example.php` ca **`config.php`** și completează:
+În `/home/rvir1227/lista/api/` copiază `config.example.php` ca **`config.php`** și completează:
 
 ```php
-'db_name' => 'vireoro_lista',
-'db_user' => 'vireoro_lista',
+'db_name' => 'rvir1227_lista',
+'db_user' => 'rvir1227_lista',
 'db_pass' => 'parola reală',
 
 'allowed_origins' => [
-    'https://vireo.ro',
-    'https://www.vireo.ro',
-    'https://NUMELE-TAU.github.io',   // adresa de pe GitHub Pages
+    'https://lista.vireo.ro',
+    'https://cripetre-droid.github.io',   // varianta de pe GitHub Pages
 ],
 
 'allow_signup' => true,      // închide-l după ce vă faceți conturile
 'install_key'  => 'ceva-numai-al-tau',
 ```
 
-### 4. Crearea tabelelor
+### 5. Crearea tabelelor
 
 Deschide o singură dată în browser:
 
 ```
-https://vireo.ro/lista/api/install.php?key=ceva-numai-al-tau
+https://lista.vireo.ro/api/install.php?key=ceva-numai-al-tau
 ```
 
 Trebuie să răspundă `{"ok":true,...}`. **Șterge apoi `install.php` de pe server.**
 
-### 5. Gata
+### 6. Gata
 
-`https://vireo.ro/lista/` → „Nu am cont” → îți faci contul.
+`https://lista.vireo.ro/` → „Nu am cont” → îți faci contul.
 Pe telefon: meniul browserului → **Adaugă la ecranul principal**.
+
+Aplicația își găsește singură API-ul, în folderul `api/` de lângă ea — dacă muți mai târziu
+fișierele în altă parte (alt subdomeniu, alt folder), nu trebuie schimbat nimic în cod.
 
 ---
 
@@ -101,12 +109,12 @@ Repository-ul conține `.github/workflows/pages.yml`, care publică automat fold
 la fiecare `push` pe `main`.
 
 1. în GitHub: **Settings → Pages → Source: GitHub Actions**;
-2. după primul push, aplicația e la `https://NUMELE-TAU.github.io/NUMELE-REPO/`;
-3. adaugă acea adresă în `allowed_origins` din `api/config.php` de pe vireo.ro,
+2. aplicația e la `https://cripetre-droid.github.io/lista-cumparaturi/`;
+3. adresa aceea trebuie să fie în `allowed_origins` din `api/config.php` de pe server,
    altfel serverul respinge cererile (vezi mesajul „Serverul nu acceptă cereri de la această adresă”).
 
-Varianta de pe GitHub Pages folosește **același** API de pe vireo.ro, deci ai aceleași
-liste indiferent de unde intri.
+Varianta de pe GitHub Pages folosește **același** API (`https://lista.vireo.ro/api/`), deci ai
+aceleași liste indiferent de unde intri.
 
 ---
 
@@ -114,7 +122,7 @@ liste indiferent de unde intri.
 
 ```bash
 node dev/server-test.mjs          # http://localhost:8787 (API imitat, date în memorie)
-node dev/test-ui.mjs              # test automat: 14 scenarii, capturi în dev/capturi/
+node dev/test-ui.mjs              # test automat: 15 scenarii, capturi în dev/capturi/
 ```
 
 Serverul de test nu are nevoie de PHP sau MySQL — imită API-ul, ca să poți lucra la interfață.

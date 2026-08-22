@@ -1,19 +1,31 @@
-/* Unde se afla API-ul (PHP-ul de pe vireo.ro).
-   Pe vireo.ro se foloseste automat acelasi domeniu; de pe GitHub Pages
-   sau de pe localhost se apeleaza vireo.ro. Se poate suprascrie din
-   Setari > Server (util la testare). */
+/* Unde se afla API-ul (PHP-ul de pe gazduirea Romarg).
 
-const IMPLICIT = 'https://vireo.ro/lista/api/';
+   Pe vireo.ro (subdomeniul lista.vireo.ro) API-ul sta in folderul "api/" de langa
+   aplicatie, deci se afla singur, oricum ar fi asezate fisierele. De pe GitHub Pages,
+   unde nu exista PHP, se apeleaza direct lista.vireo.ro.
+   Se poate suprascrie din Meniu > Server (util la testare). */
+
+const IMPLICIT = 'https://lista.vireo.ro/api/';
+
+/** Folderul in care se afla aplicatia, terminat cu "/". */
+function folderulAplicatiei() {
+  return location.origin + location.pathname.replace(/[^/]*$/, '');
+}
 
 function detect() {
   const h = location.hostname;
-  if (h.endsWith('vireo.ro')) {
-    return location.origin + '/lista/api/';
+
+  // pe gazduirea proprie, API-ul e mereu in "api/" langa aplicatie
+  if (h === 'vireo.ro' || h.endsWith('.vireo.ro')) {
+    return folderulAplicatiei() + 'api/';
   }
+
+  // test local: serverul de dezvoltare raspunde tot la /api/
   if (h === 'localhost' || h === '127.0.0.1') {
-    // test local: api/ langa aplicatie (serverul de dezvoltare)
     return localStorage.getItem('lc.api.local') || (location.origin + '/api/');
   }
+
+  // GitHub Pages sau orice alta gazduire fara PHP
   return IMPLICIT;
 }
 

@@ -5,6 +5,31 @@
 
 declare(strict_types=1);
 
+/* Pe unele gazduiri extensia mbstring nu e activa. Ca sa nu pice tot API-ul
+   pentru atat, punem inlocuitori pe baza de expresii regulate cu /u. */
+if (!function_exists('mb_internal_encoding')) {
+    function mb_internal_encoding($encoding = null) { return true; }
+
+    function mb_strlen($s, $enc = null): int
+    {
+        return preg_match_all('/./us', (string) $s) ?: 0;
+    }
+
+    function mb_substr($s, $start, $length = null, $enc = null): string
+    {
+        $litere = preg_split('//u', (string) $s, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $bucata = $length === null ? array_slice($litere, $start) : array_slice($litere, $start, $length);
+        return implode('', $bucata);
+    }
+
+    function mb_strtolower($s, $enc = null): string
+    {
+        $mari = ['Ă', 'Â', 'Î', 'Ș', 'Ş', 'Ț', 'Ţ', 'À', 'É', 'Ü', 'Ö'];
+        $mici = ['ă', 'â', 'î', 'ș', 'ş', 'ț', 'ţ', 'à', 'é', 'ü', 'ö'];
+        return strtolower(str_replace($mari, $mici, (string) $s));
+    }
+}
+
 mb_internal_encoding('UTF-8');
 date_default_timezone_set('Europe/Bucharest');
 
@@ -12,15 +37,32 @@ date_default_timezone_set('Europe/Bucharest');
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
+/**
+ * Locurile in care se cauta configurarea, in ordine.
+ * Primul e in afara folderului public (recomandat): chiar daca PHP-ul cade,
+ * fisierul cu parole nu poate fi servit ca text de catre Apache.
+ */
+function fisiere_config(): array
+{
+    return [
+        dirname(__DIR__, 2) . '/lista-config.php',  // ex. /home/rvir1227/lista-config.php
+        __DIR__ . '/config.php',                    // varianta simpla, in api/
+    ];
+}
+
 function cfg(): array
 {
     static $cfg = null;
     if ($cfg === null) {
-        $file = __DIR__ . '/config.php';
-        if (!is_file($file)) {
+        foreach (fisiere_config() as $file) {
+            if (is_file($file)) {
+                $cfg = require $file;
+                break;
+            }
+        }
+        if (!is_array($cfg)) {
             json_out(['error' => 'server_neconfigurat'], 500);
         }
-        $cfg = require $file;
     }
     return $cfg;
 }

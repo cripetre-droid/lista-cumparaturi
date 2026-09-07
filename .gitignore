@@ -1,5 +1,6 @@
 # configurare cu parole - nu ajunge niciodata in GitHub
 api/config.php
+lista-config.php
 
 # rezultate de test si arhive de deploy
 dev/capturi/

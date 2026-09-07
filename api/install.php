@@ -109,4 +109,14 @@ foreach ($sql as $q) {
     $done[] = $m[1] ?? '?';
 }
 
-json_out(['ok' => true, 'tabele' => $done, 'mesaj' => 'Instalare reusita. Sterge install.php de pe server.']);
+$folosit = '(necunoscut)';
+foreach (fisiere_config() as $f) {
+    if (is_file($f)) { $folosit = $f; break; }
+}
+
+json_out([
+    'ok'           => true,
+    'tabele'       => $done,
+    'configurarea' => $folosit,
+    'mesaj'        => 'Instalare reusita. Sterge install.php de pe server.',
+]);

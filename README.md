@@ -67,21 +67,36 @@ Structura pe server trebuie să arate așa:
 
 ### 4. Configurarea serverului
 
-În `/home/rvir1227/lista/api/` copiază `config.example.php` ca **`config.php`** și completează:
+Fișierul cu parole stă **deasupra folderului public**, ca să nu poată fi servit de Apache
+în nicio situație. În File Manager urcă-te un etaj, în `/home/rvir1227/`, și creează acolo
+fișierul **`lista-config.php`** (New File), cu conținutul din `api/config.example.php`:
 
 ```php
-'db_name' => 'rvir1227_lista',
-'db_user' => 'rvir1227_lista',
-'db_pass' => 'parola reală',
+<?php
+return [
+    'db_host' => 'localhost',
+    'db_name' => 'rvir1227_lista',
+    'db_user' => 'rvir1227_lista',
+    'db_pass' => 'parola reală',
 
-'allowed_origins' => [
-    'https://lista.vireo.ro',
-    'https://cripetre-droid.github.io',   // varianta de pe GitHub Pages
-],
+    'allowed_origins' => [
+        'https://lista.vireo.ro',
+        'https://cripetre-droid.github.io',   // varianta de pe GitHub Pages
+    ],
 
-'allow_signup' => true,      // închide-l după ce vă faceți conturile
-'install_key'  => 'ceva-numai-al-tau',
+    'allow_signup' => true,      // închide-l după ce vă faceți conturile
+    'signup_code'  => '',
+    'install_key'  => 'ceva-numai-al-tau',
+];
 ```
+
+Aplicația caută configurarea în două locuri, în ordine:
+
+1. `/home/rvir1227/lista-config.php` — **recomandat**, în afara folderului public;
+2. `/home/rvir1227/lista/api/config.php` — merge și așa (e blocat din `api/.htaccess`),
+   dar protecția depinde de PHP și de `.htaccess`.
+
+`install.php` îți spune în răspuns pe care dintre ele l-a folosit.
 
 ### 5. Crearea tabelelor
 
@@ -147,7 +162,9 @@ Testul automat pornește singur serverul, pe portul lui.
 - toate interogările sunt pregătite (`prepared statements`);
 - limitare la 10 încercări de autentificare eșuate / IP / 15 minute;
 - CORS pe listă albă de origini;
-- `config.php` blocat din `.htaccess` și exclus din Git.
+- fișierul cu parole stă deasupra folderului public (`/home/rvir1227/lista-config.php`),
+  iar varianta din `api/` e blocată din `.htaccess`; ambele sunt excluse din Git;
+- aplicația merge și pe găzduiri fără `mbstring` (are înlocuitori proprii).
 
 ## Structura fișierelor
 

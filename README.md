@@ -98,7 +98,16 @@ Aplicația caută configurarea în două locuri, în ordine:
 
 `install.php` îți spune în răspuns pe care dintre ele l-a folosit.
 
-### 5. Crearea tabelelor
+### 5. Verificarea găzduirii
+
+Deschide `https://lista.vireo.ro/api/verifica.php` — îți spune versiunea de PHP,
+extensiile, unde a găsit configurarea și dacă se conectează la baza de date.
+
+Aplicația are nevoie de **PHP 7.1 sau mai nou** (ideal 8.x). Dacă subdomeniul e pe o
+versiune veche, apare `Parse error ... unexpected '?'`. Se schimbă din cPanel →
+**MultiPHP Manager** → bifezi `lista.vireo.ro` → **PHP 8.2** → *Apply*.
+
+### 6. Crearea tabelelor
 
 Deschide o singură dată în browser:
 
@@ -106,9 +115,10 @@ Deschide o singură dată în browser:
 https://lista.vireo.ro/api/install.php?key=ceva-numai-al-tau
 ```
 
-Trebuie să răspundă `{"ok":true,...}`. **Șterge apoi `install.php` de pe server.**
+Trebuie să răspundă `{"ok":true,...}`, iar la `configurarea` să apară calea fișierului
+citit. **Șterge apoi de pe server `install.php` și `verifica.php`.**
 
-### 6. Gata
+### 7. Gata
 
 `https://lista.vireo.ro/` → „Nu am cont” → îți faci contul.
 Pe telefon: meniul browserului → **Adaugă la ecranul principal**.
@@ -186,4 +196,5 @@ api/
   share.php             partajare: cod, alăturare, membri
   suggest.php           sugestii din istoric
   install.php           creează tabelele (se șterge după instalare)
+  verifica.php          diagnostic găzduire; merge și pe PHP vechi (se șterge după instalare)
 ```

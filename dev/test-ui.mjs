@@ -306,6 +306,16 @@ await p2.waitForTimeout(14000);        // ~2 verificari, fara nicio schimbare pe
 const clipiri = await p2.evaluate(() => window.__clipiri);
 verifica(clipiri === 0, 'indicatorul nu apare cand nu s-a schimbat nimic (' + clipiri + ' aparitii)');
 
+console.log('18. In liniste se fac doar verificari ieftine');
+const stat = async () => (await (await fetch(BAZA + '/__stat')).json());
+const inainte = await stat();
+await p2.waitForTimeout(12000);          // ~4 verificari la 3 secunde, nimic de schimbat
+const dupa = await stat();
+const pinguriNoi = dupa.pinguri - inainte.pinguri;
+const syncNoi = dupa.sincronizari - inainte.sincronizari;
+verifica(pinguriNoi >= 2, 'se fac verificari dese (' + pinguriNoi + ' in 12 s)');
+verifica(syncNoi === 0, 'niciuna nu a cerut sincronizare completa (' + syncNoi + ')');
+
 await browser.close();
 srv.kill();
 

@@ -159,13 +159,17 @@ export async function sync({ full = false, silent = false } = {}) {
    Cand cineva foloseste aplicatia (e in magazin, bifeaza), verificam des,
    ca sa vada imediat ce bifeaza celalalt. Cand aplicatia sta doar deschisa,
    rarim; cand e in fundal, ne oprim de tot si reluam la revenire. */
-const RITM_ACTIV   = 6000;      // 6 secunde, in timpul folosirii
+const RITM_ACTIV   = 3000;      // 3 secunde, in timpul folosirii
 const RITM_LENT    = 45000;     // 45 de secunde, daca nu s-a atins nimic
 const PRAG_INACTIV = 120000;    // dupa 2 minute fara nicio atingere, trecem la ritmul lent
+
+const RITM_MAXIM   = 300000;    // daca serverul se plange, urcam pana la 5 minute
 
 let autoTimer = null;
 let debounceTimer = null;
 let ultimaAtingere = Date.now();
+let esecuri = 0;                // cate verificari la rand au dat gres
+let arePing = true;             // serverul stie de ping.php? (daca nu, mergem pe sync)
 
 /** Marcheaza ca utilizatorul tocmai a folosit aplicatia (readuce ritmul rapid). */
 export function noteInteraction() {
@@ -181,7 +185,9 @@ export function syncSoon() {
 }
 
 function ritmCurent() {
-  return (Date.now() - ultimaAtingere < PRAG_INACTIV) ? RITM_ACTIV : RITM_LENT;
+  const baza = (Date.now() - ultimaAtingere < PRAG_INACTIV) ? RITM_ACTIV : RITM_LENT;
+  // la erori ne retragem treptat, ca sa nu impingem serverul si sa nu fim blocati
+  return Math.min(baza * Math.pow(2, esecuri), RITM_MAXIM);
 }
 
 function programeaza(peste) {
@@ -191,7 +197,33 @@ function programeaza(peste) {
 
 async function tick() {
   if (document.visibilityState === 'visible' && navigator.onLine) {
-    try { await sync({ silent: true }); } catch (e) { /* reincercam la urmatorul tur */ }
+    try {
+      if (hasPending() || !arePing) {
+        // avem modificari de trimis (sau serverul nu stie de ping.php)
+        await sync({ silent: true });
+      } else {
+        // altfel doar intrebam ieftin daca s-a schimbat ceva
+        const r = await api.ping();
+        if (r.ultim > (state.lastSync || 0)) await sync({ silent: true });
+      }
+      esecuri = 0;
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'neautentificat') {
+        emit('auth', e);
+        return;                       // nu mai insistam pe o sesiune expirata
+      }
+      if (e instanceof ApiError && e.status === 404) {
+        // server mai vechi, fara ping.php: mergem mai departe cu sincronizarea obisnuita
+        arePing = false;
+        esecuri = 0;
+        programeaza(500);
+        return;
+      }
+      esecuri = Math.min(esecuri + 1, 7);
+      if (e instanceof ApiError && (e.status === 429 || e.status === 403 || e.status === 503)) {
+        esecuri = Math.max(esecuri, 4);   // serverul ne cere raspicat sa incetinim
+      }
+    }
   }
   programeaza();
 }

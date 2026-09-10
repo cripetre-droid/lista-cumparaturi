@@ -77,6 +77,7 @@ export const api = {
   changePassword: (d) => call('auth.php?a=password', { body: d }),
 
   sync: (d) => call('sync.php', { body: d, timeout: 30000 }),
+  ping: () => call('ping.php', { method: 'GET', timeout: 8000 }),
 
   shareCreate: (listId) => call('share.php?a=create', { body: { list_id: listId } }),
   shareJoin: (code) => call('share.php?a=join', { body: { code } }),

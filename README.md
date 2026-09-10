@@ -158,8 +158,14 @@ Testul automat pornește singur serverul, pe portul lui.
 ## Cum funcționează sincronizarea
 
 - Fiecare modificare se scrie **întâi local** (localStorage) și e marcată „de trimis”.
-- La 1,5 secunde după ultima modificare (și la fiecare minut, și la revenirea în aplicație),
-  clientul trimite ce are de trimis și cere ce s-a schimbat pe server de la ultima dată.
+- La 1,5 secunde după ultima modificare, clientul trimite ce are de trimis.
+- Cât timp aplicația e folosită, întreabă serverul **la 3 secunde** dacă s-a schimbat ceva —
+  dar printr-o cerere ieftină (`ping.php`, o singură interogare, ~13 ms măsurați pe Romarg),
+  iar sincronizarea completă se face doar când răspunsul spune că există într-adevăr noutăți.
+  Dacă aplicația stă neatinsă peste 2 minute, ritmul scade la 45 de secunde; în fundal se
+  oprește de tot și reia instant la revenire.
+- Dacă serverul dă erori (sau 429/403), ritmul se dublează la fiecare eșec, până la 5 minute,
+  ca să nu fie împins și să nu ajungem blocați. La prima reușită revine la normal.
 - Momentul modificării (`updated_at`) e pus de **server**, nu de telefon — așa nu contează
   dacă ceasul telefonului e dat greșit. La conflict câștigă ultima modificare ajunsă la server.
 - Ștergerile rămân o vreme ca „urmă” (`deleted = 1`), ca să se propage și la celelalte telefoane;
@@ -194,6 +200,7 @@ api/
   auth.php              cont: înregistrare, intrare, ieșire, schimbare parolă
   sync.php              sincronizarea listelor și a produselor
   share.php             partajare: cod, alăturare, membri
+  ping.php              intrebarea ieftina "s-a schimbat ceva?" (o singura interogare)
   suggest.php           sugestii din istoric
   install.php           creează tabelele (se șterge după instalare)
   verifica.php          diagnostic găzduire; merge și pe PHP vechi (se șterge după instalare)

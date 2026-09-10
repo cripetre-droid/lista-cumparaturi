@@ -113,6 +113,7 @@ const server = http.createServer(async (req, res) => {
     if (fisier === 'auth.php' && a === 'password') return json(res, { ok: true });
 
     if (fisier === 'sync.php') {
+      db.sincronizari = (db.sincronizari || 0) + 1;
       const now = acum();
       const since = Number(body.since || 0);
       const acc = new Set(accesibile(me));
@@ -185,6 +186,15 @@ const server = http.createServer(async (req, res) => {
       return json(res, { ok: true });
     }
 
+    if (fisier === 'ping.php') {
+      const ids = accesibile(me);
+      let ultim = 0;
+      for (const l of db.lists.values()) if (ids.includes(l.id) && l.updated_at > ultim) ultim = l.updated_at;
+      for (const i of db.items.values()) if (ids.includes(i.list_id) && i.updated_at > ultim) ultim = i.updated_at;
+      db.pinguri = (db.pinguri || 0) + 1;
+      return json(res, { now: acum(), ultim });
+    }
+
     if (fisier === 'suggest.php') {
       const q = norm(url.searchParams.get('q') || '');
       const items = [...db.history.values()]
@@ -196,6 +206,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     return json(res, { error: 'actiune_necunoscuta' }, 404);
+  }
+
+  if (url.pathname === '/__stat') {
+    return json(res, { pinguri: db.pinguri || 0, sincronizari: db.sincronizari || 0 });
   }
 
   /* ---------------- fisiere statice ---------------- */

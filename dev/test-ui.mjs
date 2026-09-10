@@ -272,6 +272,40 @@ verifica(!laDoi, 'anularea s-a propagat prin server la utilizatorul 2');
 await shot(page, 'undo-propagat-la-server');
 await p2.screenshot({ path: path.join(CAPTURI, '98-utilizator2-dupa-undo.png') });
 
+console.log('16. Bifa celuilalt apare singura, fara reincarcare');
+// utilizatorul 2 sta cu lista deschisa; utilizatorul 1 bifeaza; nu atingem nimic la 2
+await p2.click('.list-card:has-text("Mega")').catch(() => {});
+await p2.waitForTimeout(500);
+if (!(await p2.isVisible('#screenItems:not(.hidden)'))) {
+  await p2.click('.list-card:has-text("Mega")');
+  await p2.waitForTimeout(500);
+}
+const eraBifat = await p2.locator('.item:has-text("Telemea").done').count();
+await page.click('.item:has-text("Telemea")');     // utilizatorul 1 comuta bifa
+await page.waitForTimeout(2000);                   // se trimite la server
+
+const inceput = Date.now();
+let aVazut = false;
+while (Date.now() - inceput < 15000) {
+  const acum = await p2.locator('.item:has-text("Telemea").done').count();
+  if (acum !== eraBifat) { aVazut = true; break; }
+  await p2.waitForTimeout(500);
+}
+const secunde = Math.round((Date.now() - inceput) / 100) / 10;
+verifica(aVazut, 'schimbarea a aparut singura la celalalt telefon (in ' + secunde + ' s)');
+verifica(secunde <= 12, 'a aparut in cel mult 12 secunde (' + secunde + ' s)');
+await shot(page, 'propagare-automata');
+
+console.log('17. Verificarile tacute nu deranjeaza');
+await p2.evaluate(() => {
+  window.__clipiri = 0;
+  const b = document.getElementById('syncBadge');
+  new MutationObserver(() => { if (!b.hidden) window.__clipiri++; }).observe(b, { attributes: true });
+});
+await p2.waitForTimeout(14000);        // ~2 verificari, fara nicio schimbare pe server
+const clipiri = await p2.evaluate(() => window.__clipiri);
+verifica(clipiri === 0, 'indicatorul nu apare cand nu s-a schimbat nimic (' + clipiri + ' aparitii)');
+
 await browser.close();
 srv.kill();
 

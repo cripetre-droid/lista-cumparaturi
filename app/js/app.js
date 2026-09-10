@@ -10,7 +10,7 @@ import {
   visibleLists, listItems, listStats, nextPosition, nextListPosition,
   rememberProduct, localSuggestions,
 } from './store.js';
-import { sync, syncSoon, startAuto, onSync, hasPending } from './sync.js';
+import { sync, syncSoon, startAuto, onSync, hasPending, noteInteraction } from './sync.js';
 import {
   $, $$, el, escapeHtml, highlight, icon, sheet, closeSheet,
   askText, confirmBox, dialogHtml, closeDialog, snack, hideSnack, badge, makeSortable,
@@ -42,9 +42,15 @@ function boot() {
   aplicaTema(state.theme || 'auto');
   legaEvenimente();
 
-  onSync((st) => {
+  onSync((st, info) => {
     if (st === 'sync') badge('Sincronizez...', { ms: 0 });
-    else if (st === 'idle') { badge('Sincronizat'); randeaza(); }
+    else if (st === 'idle') {
+      randeaza();
+      // in fundal nu anuntam fiecare verificare, doar cand chiar vine ceva nou
+      if (!(info && info.silent)) badge('Sincronizat');
+      else if (info.schimbari > 0) badge('Actualizat', { ms: 1200 });
+      else badge('');
+    }
     else if (st === 'offline') badge('Fără conexiune - datele sunt salvate pe telefon', { ms: 2600 });
     else if (st === 'auth') { badge('Sesiune expirată', { error: true, ms: 3000 }); deconectatDeServer(); }
     else if (st === 'error') badge('Nu am putut sincroniza', { error: true, ms: 2600 });
@@ -1160,6 +1166,64 @@ function actualizeazaSugestii() {
   }
 }
 
+
+/* =========================================================
+   TRAGERE IN JOS PENTRU IMPROSPATARE
+   ========================================================= */
+
+function activeazaTragerea(container) {
+  const ecran = container.closest('.screen');
+  const antet = ecran.querySelector('.appbar');
+
+  const ind = el('div', { class: 'ptr' });
+  ind.append(icon('redo'));
+  ecran.append(ind);
+
+  const PRAG = 62;
+  let pornitLa = null;
+  let distanta = 0;
+
+  const aseaza = (d, animat) => {
+    ind.style.transition = animat ? 'transform .2s, opacity .2s' : 'none';
+    ind.style.transform = 'translateY(' + (Math.min(d, 90) - 48) + 'px)';
+    ind.style.opacity = d > 8 ? Math.min(1, d / PRAG) : 0;
+    ind.classList.toggle('gata', d >= PRAG);
+  };
+
+  container.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1 || container.scrollTop > 0) { pornitLa = null; return; }
+    if (e.target.closest('.drag-handle')) { pornitLa = null; return; }
+    pornitLa = e.touches[0].clientY;
+    distanta = 0;
+    ind.style.top = antet.offsetHeight + 'px';
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    if (pornitLa === null) return;
+    const dy = e.touches[0].clientY - pornitLa;
+    if (dy <= 0 || container.scrollTop > 0) { pornitLa = null; aseaza(0, true); return; }
+    distanta = dy * 0.5;             // rezistenta la tragere
+    if (distanta > 6) e.preventDefault();
+    aseaza(distanta, false);
+  }, { passive: false });
+
+  const termina = async () => {
+    if (pornitLa === null) return;
+    pornitLa = null;
+    if (distanta >= PRAG) {
+      ind.classList.add('lucreaza');
+      aseaza(PRAG, true);
+      await sync({ silent: false });
+      ind.classList.remove('lucreaza');
+    }
+    aseaza(0, true);
+    distanta = 0;
+  };
+
+  container.addEventListener('touchend', termina);
+  container.addEventListener('touchcancel', termina);
+}
+
 /* =========================================================
    EVENIMENTE
    ========================================================= */
@@ -1203,6 +1267,10 @@ function legaEvenimente() {
     if (!row.hidden) { deseneazaUnitati(); $('#newQty').focus(); }
     else { $('#newQty').value = ''; ui.unit = ''; }
   });
+
+  // tragere in jos = verifica acum
+  activeazaTragerea($('#listsContent'));
+  activeazaTragerea($('#itemsContent'));
 
   // reordonare
   makeSortable($('#listsWrap'), {

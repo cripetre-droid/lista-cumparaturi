@@ -637,6 +637,28 @@ mark {
 }
 .snackbar button:active { background: rgba(140,194,255,.16); }
 
+/* ---------- tragere in jos pentru improspatare ---------- */
+.ptr {
+  position: absolute;
+  left: 50%; top: 0;
+  width: 38px; height: 38px;
+  margin-left: -19px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  display: grid; place-items: center;
+  color: var(--primary);
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-48px);
+}
+.ptr svg { width: 20px; height: 20px; transition: transform .18s; }
+.ptr.gata { color: var(--ok); }
+.ptr.gata svg { transform: rotate(180deg); }
+.ptr.lucreaza svg { animation: invarte .9s linear infinite; }
+@keyframes invarte { to { transform: rotate(360deg); } }
+
 /* ---------- indicator sincronizare ---------- */
 .sync-badge {
   position: fixed;

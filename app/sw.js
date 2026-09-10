@@ -2,7 +2,7 @@
    Datele (listele) NU trec pe aici - ele stau in localStorage si se
    sincronizeaza separat. Aici se pastreaza doar fisierele aplicatiei. */
 
-const CACHE = 'lista-cumparaturi-v1.0.0';
+const CACHE = 'lista-cumparaturi-v1.1.0';
 
 const FISIERE = [
   './',

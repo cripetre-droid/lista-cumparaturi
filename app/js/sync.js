@@ -76,6 +76,11 @@ export async function sync({ full = false, silent = false } = {}) {
 
     const res = await api.sync({ since, lists: payload.lists, items: payload.items });
 
+    // cate dintre noutati vin de la ceilalti, nu sunt ecoul a ce tocmai am trimis
+    let dinAfara = 0;
+    for (const l of res.lists || []) if (!trimise.has('l' + l.id)) dinAfara++;
+    for (const it of res.items || []) if (!trimise.has('i' + it.id)) dinAfara++;
+
     applyRemote(() => {
       // 1. curatam marcajul "de trimis" pentru ce nu s-a mai schimbat intre timp
       for (const l of Object.values(state.lists)) {
@@ -123,7 +128,7 @@ export async function sync({ full = false, silent = false } = {}) {
     });
 
     save(true);
-    emit('idle');
+    emit('idle', { schimbari: dinAfara, silent });
   };
 
   inProgress = run()
@@ -150,8 +155,24 @@ export async function sync({ full = false, silent = false } = {}) {
 
 /* --------- sincronizare automata --------- */
 
+/* Cat de des intrebam serverul daca s-a schimbat ceva.
+   Cand cineva foloseste aplicatia (e in magazin, bifeaza), verificam des,
+   ca sa vada imediat ce bifeaza celalalt. Cand aplicatia sta doar deschisa,
+   rarim; cand e in fundal, ne oprim de tot si reluam la revenire. */
+const RITM_ACTIV   = 6000;      // 6 secunde, in timpul folosirii
+const RITM_LENT    = 45000;     // 45 de secunde, daca nu s-a atins nimic
+const PRAG_INACTIV = 120000;    // dupa 2 minute fara nicio atingere, trecem la ritmul lent
+
 let autoTimer = null;
 let debounceTimer = null;
+let ultimaAtingere = Date.now();
+
+/** Marcheaza ca utilizatorul tocmai a folosit aplicatia (readuce ritmul rapid). */
+export function noteInteraction() {
+  const eraLent = Date.now() - ultimaAtingere > PRAG_INACTIV;
+  ultimaAtingere = Date.now();
+  if (eraLent) programeaza(1000);   // s-a intors la aplicatie: verificam imediat
+}
 
 /** Dupa fiecare modificare: trimite peste 1,5 secunde (ca sa grupam mai multe). */
 export function syncSoon() {
@@ -159,20 +180,49 @@ export function syncSoon() {
   debounceTimer = setTimeout(() => sync({ silent: true }), 1500);
 }
 
+function ritmCurent() {
+  return (Date.now() - ultimaAtingere < PRAG_INACTIV) ? RITM_ACTIV : RITM_LENT;
+}
+
+function programeaza(peste) {
+  if (autoTimer) clearTimeout(autoTimer);
+  autoTimer = setTimeout(tick, peste === undefined ? ritmCurent() : peste);
+}
+
+async function tick() {
+  if (document.visibilityState === 'visible' && navigator.onLine) {
+    try { await sync({ silent: true }); } catch (e) { /* reincercam la urmatorul tur */ }
+  }
+  programeaza();
+}
+
 export function startAuto() {
   stopAuto();
-  autoTimer = setInterval(() => {
-    if (document.visibilityState === 'visible') sync({ silent: true });
-  }, 60000);
+  ultimaAtingere = Date.now();
+  programeaza();
 
   window.addEventListener('online', () => sync({ silent: true }));
+
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') sync({ silent: true });
+    if (document.visibilityState === 'visible') {
+      ultimaAtingere = Date.now();
+      sync({ silent: true });
+      programeaza();
+    } else if (autoTimer) {
+      clearTimeout(autoTimer);   // in fundal nu mai interogam serverul degeaba
+      autoTimer = null;
+    }
   });
+
+  // orice atingere a ecranului inseamna "sunt aici, tine ritmul rapid"
+  for (const ev of ['pointerdown', 'keydown', 'focus']) {
+    window.addEventListener(ev, noteInteraction, { passive: true, capture: true });
+  }
+
   window.addEventListener('pagehide', () => save(true));
 }
 
 export function stopAuto() {
-  if (autoTimer) clearInterval(autoTimer);
+  if (autoTimer) clearTimeout(autoTimer);
   autoTimer = null;
 }

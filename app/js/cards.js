@@ -44,15 +44,23 @@ function stilEticheta(st) {
   return css;
 }
 
+/** Sigla magazinului ca <img>; daca fisierul nu se incarca, pune in loc textul. */
+function imgSigla(logo, alb, laEsec) {
+  const img = el('img', { class: 'sigla' + (alb ? ' alb' : ''), src: logo, alt: '', draggable: 'false', decoding: 'async' });
+  img.addEventListener('error', () => { if (laEsec) img.replaceWith(laEsec()); else img.remove(); }, { once: true });
+  return img;
+}
+
 /** Fata unui card (folosita in grila, in previzualizare si in cercuri). */
 export function fataCard(card, { mic = false } = {}) {
   const a = aspectCard(card);
   const lung = (a.label || '').length;
   const marime = mic ? 13 : (lung > 12 ? 17 : lung > 8 ? 21 : 26);
+  const text = () => el('span', { class: 'lcard-label', style: stilEticheta(a.st) + 'font-size:' + marime + 'px', text: a.label });
   return el('div', {
-    class: 'lcard-face' + (mic ? ' mic' : ''),
+    class: 'lcard-face' + (mic ? ' mic' : '') + (a.logo ? ' cu-sigla' : ''),
     style: 'background:' + a.bg + ';color:' + a.fg + ';' + (a.bg.toUpperCase() === '#FFFFFF' ? 'box-shadow:inset 0 0 0 1px #DDE7F3;' : ''),
-  }, el('span', { class: 'lcard-label', style: stilEticheta(a.st) + 'font-size:' + marime + 'px', text: a.label }));
+  }, a.logo ? imgSigla(a.logo, a.alb, text) : text());
 }
 
 /* =========================================================
@@ -89,8 +97,10 @@ export function randeazaCarduri(q) {
       class: 'cerc-card', type: 'button', 'data-id': c.id,
       onclick: () => ctx.deschideCard(c.id),
     },
-      el('span', { class: 'cerc', style: 'background:' + a.bg + ';color:' + a.fg },
-        el('span', { style: stilEticheta(a.st) + 'font-size:' + marimeText(a.label, 52, 15, a.st), text: a.label })),
+      el('span', { class: 'cerc' + (a.logo ? ' cu-sigla' : ''), style: 'background:' + a.bg + ';color:' + a.fg },
+        a.logo
+          ? imgSigla(a.logo, a.alb, () => el('span', { style: stilEticheta(a.st) + 'font-size:' + marimeText(a.label, 52, 15, a.st), text: a.label }))
+          : el('span', { style: stilEticheta(a.st) + 'font-size:' + marimeText(a.label, 52, 15, a.st), text: a.label })),
       el('span', { class: 'cerc-nume', text: c.name }),
     ));
   }
@@ -165,9 +175,14 @@ export function randeazaCard(id) {
   const box = $('#cardView');
   box.innerHTML = '';
 
-  const antet = el('div', { class: 'lc-antet', style: 'background:' + a.bg + ';color:' + a.fg },
-    el('span', { class: 'lc-nume', style: stilEticheta(a.st), text: a.label }),
+  const numeText = () => el('span', { class: 'lc-nume', style: stilEticheta(a.st), text: a.label });
+  const antet = el('div', { class: 'lc-antet' + (a.logo ? ' cu-sigla' : ''), style: 'background:' + a.bg + ';color:' + a.fg },
+    a.logo ? el('span', { class: 'lc-sigla' }, imgSigla(a.logo, a.alb, numeText)) : numeText(),
   );
+  // numele propriu al cardului (ex. "Mega Image - Ana") apare langa sigla
+  if (a.logo && c.name && magazin(c.store) && c.name !== magazin(c.store).name) {
+    antet.append(el('span', { class: 'lc-subnume', text: c.name }));
+  }
   const nr = state.cardShared[c.id] || 0;
   if (nr > 1) {
     const p = el('span', { class: 'lc-pill' });
@@ -363,8 +378,10 @@ function alegeMagazin(laAlegere) {
           lista.append(el('div', { class: 'mag-cat', text: m.cat }));
         }
         lista.append(el('button', { class: 'magazin', type: 'button', 'data-store': m.id, onclick: () => laAlegere(m) },
-          el('span', { class: 'mag-culoare', style: 'background:' + m.bg + ';color:' + m.fg + ';' + (m.bg === '#FFFFFF' ? 'box-shadow:inset 0 0 0 1px #DDE7F3' : '') },
-            el('span', { style: stilEticheta(m.st) + 'font-size:' + marimeText(m.label, 40, 11, m.st), text: m.label })),
+          el('span', { class: 'mag-culoare' + (m.logo ? ' cu-sigla' : ''), style: 'background:' + m.bg + ';color:' + m.fg + ';' + (m.bg === '#FFFFFF' ? 'box-shadow:inset 0 0 0 1px #DDE7F3' : '') },
+            m.logo
+              ? imgSigla(m.logo, m.alb, () => el('span', { style: stilEticheta(m.st) + 'font-size:' + marimeText(m.label, 40, 11, m.st), text: m.label }))
+              : el('span', { style: stilEticheta(m.st) + 'font-size:' + marimeText(m.label, 40, 11, m.st), text: m.label })),
           el('span', { class: 'mag-nume', text: m.name })));
       }
     };

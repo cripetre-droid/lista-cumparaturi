@@ -1086,3 +1086,18 @@ body.cu-tabbar .fab { bottom: calc(82px + var(--safe-b)); }
   position: absolute; bottom: calc(14px + var(--safe-b)); left: 0; right: 0;
   text-align: center; color: #888; font-size: 13px;
 }
+
+/* ---------- siglele magazinelor ---------- */
+img.sigla { display: block; object-fit: contain; pointer-events: none; user-select: none; }
+img.sigla.alb { filter: brightness(0) invert(1); }
+.lcard-face.cu-sigla img.sigla { width: 74%; height: 62%; }
+.lcard-face.mic.cu-sigla img.sigla { width: 80%; height: 70%; }
+.cerc.cu-sigla { padding: 0; }
+.cerc.cu-sigla img.sigla { width: 70%; height: 56%; }
+.mag-culoare.cu-sigla { padding: 3px 4px; }
+.mag-culoare.cu-sigla img.sigla { width: 38px; height: 24px; }
+.lc-antet.cu-sigla { min-height: 76px; padding: 12px 18px; }
+.lc-sigla { flex: 1; min-width: 0; height: 52px; display: flex; align-items: center; }
+.lc-sigla img.sigla { max-width: min(62%, 240px); height: 100%; object-position: left center; }
+.lc-subnume { font-size: 14px; font-weight: 600; opacity: .9; max-width: 40%; text-align: right; }
+

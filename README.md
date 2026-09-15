@@ -23,7 +23,7 @@ când revine semnalul.
 | **Partajare** | cod de invitație de 7 caractere; ce bifează unul, vede celălalt |
 | **Offline** | totul e salvat pe telefon; sincronizarea se face automat la revenirea semnalului |
 | **Temă** | deschisă / întunecată / ca în telefon |
-| **Carduri de fidelitate** | tab separat: scanezi codul de pe card cu camera (sau tastezi numărul), ~48 de magazine românești predefinite, cod de bare mare la casă, ecranul nu se stinge, merge fără internet |
+| **Carduri de fidelitate** | tab separat: scanezi codul de pe card cu camera (sau tastezi numărul), 47 de magazine românești cu sigla originală, cod de bare mare la casă, ecranul nu se stinge, merge fără internet |
 | **Card ↔ listă** | cardul Mega apare ca buton direct în lista „Mega” (legătura se propune singură după nume) |
 | **Alte** | sortare alfabetică, bifează tot, golire, „adaugă mai multe deodată", trimitere ca text pe WhatsApp |
 
@@ -177,6 +177,13 @@ Testul automat pornește singur serverul, pe portul lui.
   scannerul de la casă.
 
 Librării incluse în `app/js/vendor/` (toate MIT): JsBarcode 3.12, qrcode-generator 1.5, @zxing/library 0.21.
+
+**Siglele magazinelor** (`app/icons/magazine/`, ~380 KB, puse și în cache-ul offline) sunt luate de pe
+site-urile magazinelor și de pe Wikimedia Commons (proprietatea „logo” din Wikidata) și au fost verificate
+vizual una câte una. Sunt mărci ale magazinelor respective, folosite doar ca să recunoști cardul, ca în
+Klarna. Fără siglă (site-urile nu permit preluarea): La Cocoș și Cărturești — apar cu numele scris.
+Pentru „Alt magazin” rămâne numele pe culoarea aleasă. Câmpul `alb: 1` din `stores.js` afișează sigla
+în alb pe culoarea magazinului.
 
 ## Actualizarea serverului
 

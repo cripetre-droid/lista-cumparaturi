@@ -226,6 +226,8 @@ function programeaza(peste) {
 }
 
 async function tick() {
+  // fara cont (iesire sau cont sters) nu mai interogam serverul; pornirea urmatoare reia bucla
+  if (!state.token) { autoTimer = null; return; }
   if (document.visibilityState === 'visible' && navigator.onLine) {
     try {
       if (hasPending() || !arePing) {

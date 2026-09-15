@@ -29,6 +29,11 @@ când revine semnalul.
 
 ---
 
+## Google Play
+
+Tot ce ține de publicarea în magazin (politica de confidențialitate, ștergerea contului, cheia de semnare,
+`assetlinks.json`, configurarea pachetului Android) stă în [`GooglePlay/`](GooglePlay/README.md).
+
 ## Instalare pe lista.vireo.ro (Romarg, cPanel)
 
 ### 1. Subdomeniul

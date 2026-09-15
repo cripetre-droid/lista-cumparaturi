@@ -12,3 +12,12 @@ Thumbs.db
 desktop.ini
 .DS_Store
 node_modules/
+
+# Google Play: cheia de semnare si uneltele descarcate NU ajung niciodata pe GitHub
+GooglePlay/semnare/
+GooglePlay/unelte/
+*.jks
+*.keystore
+GooglePlay/date-publice.json
+GooglePlay/site-gata/
+dev/capturi-firefox/

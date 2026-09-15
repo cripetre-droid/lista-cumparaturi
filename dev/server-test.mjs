@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { construiesteSite } from '../GooglePlay/pregateste-site.mjs';
 
 const AICI = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.join(AICI, '..', 'app');
@@ -140,6 +141,26 @@ const server = http.createServer(async (req, res) => {
     }
     if (fisier === 'auth.php' && a === 'logout') return json(res, { ok: true });
     if (fisier === 'auth.php' && a === 'password') return json(res, { ok: true });
+    if (fisier === 'auth.php' && a === 'delete') {
+      const u = db.users.find((x) => x.id === me);
+      if (!u || u.pass !== body.password) return json(res, { error: 'parola_gresita' }, 401);
+      // listele/cardurile partajate trec la primul membru, restul se sterg
+      for (const l of [...db.lists.values()].filter((l) => l.owner_id === me)) {
+        const m = db.members.find((x) => x.list_id === l.id && x.user_id !== me);
+        if (m) { l.owner_id = m.user_id; l.updated_at = acum(); db.members = db.members.filter((x) => x !== m); }
+        else { db.lists.delete(l.id); for (const [id, it] of db.items) if (it.list_id === l.id) db.items.delete(id); }
+      }
+      for (const c of [...db.cards.values()].filter((c) => c.owner_id === me)) {
+        const m = db.cardMembers.find((x) => x.card_id === c.id && x.user_id !== me);
+        if (m) { c.owner_id = m.user_id; c.updated_at = acum(); db.cardMembers = db.cardMembers.filter((x) => x !== m); }
+        else db.cards.delete(c.id);
+      }
+      db.members = db.members.filter((x) => x.user_id !== me);
+      db.cardMembers = db.cardMembers.filter((x) => x.user_id !== me);
+      for (const [t, id] of db.tokens) if (id === me) db.tokens.delete(t);
+      db.users = db.users.filter((x) => x.id !== me);
+      return json(res, { ok: true });
+    }
 
     if (fisier === 'sync.php') {
       db.sincronizari = (db.sincronizari || 0) + 1;
@@ -285,6 +306,19 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/__stat') {
     return json(res, { pinguri: db.pinguri || 0, sincronizari: db.sincronizari || 0 });
+  }
+
+  /* ------- paginile cerute de Google Play (in productie vin din GooglePlay/site-gata) ------- */
+  {
+    const rel = decodeURIComponent(url.pathname).replace(/^\//, '');
+    const gp = construiesteSite({ test: true });
+    if (gp[rel] !== undefined) {
+      res.writeHead(200, {
+        'Content-Type': rel.endsWith('.json') ? 'application/json; charset=utf-8' : 'text/html; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      });
+      return res.end(gp[rel]);
+    }
   }
 
   /* ---------------- fisiere statice ---------------- */

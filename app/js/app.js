@@ -194,16 +194,13 @@ function ruteazaDinUrl() {
 }
 
 function deschideCard(id) {
-  ui.cardId = id;
-  ui.screen = 'card';
-  location.hash = '#/c/' + id;
+  mergiLa('#/c/' + id);
   randeaza();
   setTimeout(() => $('#cardContent').scrollTo(0, 0), 0);
 }
 
 function inapoiLaCarduri() {
-  if (/^#\/c\//.test(location.hash) && history.length > 1) history.back();
-  else mergiLaTab('cards');
+  inapoiSau('#/c');
 }
 
 /** Bara de jos: schimbarea tab-ului nu adauga pasi in istoric. */
@@ -215,26 +212,43 @@ function mergiLaTab(tab) {
   randeaza();
 }
 
+/* Navigarea in adancime (lista, card) adauga un pas marcat de noi in istoric.
+   "Inapoi" din aplicatie se intoarce prin istoric DOAR daca pasul e al nostru;
+   altfel (aplicatia deschisa direct pe o lista, dupa o reincarcare etc.) merge
+   direct la ecranul-parinte. Asa butonul nu ramane blocat si nu iese din aplicatie. */
+function mergiLa(hash) {
+  const url = location.pathname + location.search + hash;
+  if ((location.hash || '') === hash) history.replaceState({ lc: 1, pas: true }, '', url);
+  else history.pushState({ lc: 1, pas: true }, '', url);
+  ruteazaDinUrl();
+}
+
+function inapoiSau(hashParinte) {
+  if (history.state && history.state.pas) {
+    history.back();
+  } else {
+    history.replaceState({ lc: 1 }, '', location.pathname + location.search + hashParinte);
+    ruteazaDinUrl();
+    randeaza();
+  }
+}
+
 function deschideLista(id) {
-  ui.listId = id;
-  ui.screen = 'items';
   ui.qItems = '';
   $('#qItems').value = '';
   $('#searchbarItems').hidden = true;
-  location.hash = '#/l/' + id;
+  mergiLa('#/l/' + id);
   randeaza();
   setTimeout(() => $('#itemsContent').scrollTo(0, 0), 0);
 }
 
 function inapoiLaListe() {
-  if (location.hash) history.back();
-  else { ui.screen = 'lists'; ui.listId = null; randeaza(); }
+  inapoiSau('');
 }
 
-window.addEventListener('hashchange', () => {
-  ruteazaDinUrl();
-  randeaza();
-});
+// "inapoi" de pe telefon (sau din browser): reafisam ecranul din adresa
+window.addEventListener('popstate', () => { ruteazaDinUrl(); randeaza(); });
+window.addEventListener('hashchange', () => { ruteazaDinUrl(); randeaza(); });
 
 /* =========================================================
    RANDARE
@@ -1115,7 +1129,9 @@ function meniuGeneral() {
     { icon: 'key', text: 'Schimbă parola', run: () => schimbaParola() },
     { icon: 'server', text: 'Server', run: () => setariServer() },
     { icon: 'info', text: 'Despre aplicație', run: () => despre() },
+    { icon: 'note', text: 'Politica de confidențialitate', run: () => window.open('confidentialitate.html', '_blank', 'noopener') },
     { icon: 'logout', text: 'Ieși din cont', danger: true, run: () => deconecteaza() },
+    { icon: 'trash', text: 'Șterge contul', danger: true, run: () => stergeContul() },
   ], state.user ? state.user.email : '');
 }
 
@@ -1125,6 +1141,44 @@ function aplicaTema(t, salveaza) {
   const inchis = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   if (meta) meta.setAttribute('content', inchis ? '#0B2E5C' : '#14509D');
   if (salveaza) { state.theme = t; save(true); }
+}
+
+function stergeContul() {
+  dialogHtml('Ștergi contul definitiv?', (box) => {
+    box.append(el('p', { html:
+      'Se șterg <b>definitiv</b> contul tău, listele și cardurile tale, și nu mai pot fi recuperate.<br><br>' +
+      'Listele și cardurile pe care le-ai <b>partajat</b> nu dispar de la ceilalți: rămân la persoana ' +
+      'care s-a alăturat prima.' }));
+    const parola = el('input', { class: 'dlg-input', type: 'password', placeholder: 'parola ta', autocomplete: 'current-password', id: 'stergeParola' });
+    const err = el('p', { class: 'auth-error', hidden: 'hidden' });
+    const btn = el('button', {
+      class: 'btn-text danger', type: 'button', text: 'Șterge contul', id: 'stergeConfirm',
+      onclick: async () => {
+        if (!parola.value) { err.textContent = 'Scrie parola ca să confirmi.'; err.hidden = false; return; }
+        btn.disabled = true;
+        try {
+          await api.deleteAccount(parola.value);
+          closeDialog();
+          resetAll();
+          save(true);
+          aratAuth();
+          badge('Contul a fost șters', { ms: 3500 });
+        } catch (e) {
+          err.textContent = mesajEroare(e);
+          err.hidden = false;
+          btn.disabled = false;
+        }
+      },
+    });
+    box.append(
+      el('div', { class: 'field' }, el('span', { text: 'Confirmă cu parola' }), parola),
+      err,
+      el('div', { class: 'dialog-actions' },
+        el('button', { class: 'btn-text', type: 'button', text: 'Renunță', onclick: () => closeDialog() }),
+        btn),
+    );
+    setTimeout(() => parola.focus(), 80);
+  });
 }
 
 async function schimbaParola() {

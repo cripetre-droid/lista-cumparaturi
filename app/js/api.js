@@ -18,6 +18,8 @@ const MESAJE = {
   email_invalid: 'E-mailul nu pare corect.',
   parola_prea_scurta: 'Parola trebuie să aibă minim 8 caractere.',
   parola_veche_gresita: 'Parola veche nu este corectă.',
+  parola_gresita: 'Parola nu este corectă.',
+  stergere_esuata: 'Contul nu a putut fi șters. Încearcă din nou.',
   inregistrari_oprite: 'Înregistrările sunt oprite pe acest server.',
   cod_inregistrare_gresit: 'Codul de înregistrare nu este corect.',
   cod_invalid: 'Codul nu este valid sau a expirat.',
@@ -76,6 +78,7 @@ export const api = {
   me: () => call('auth.php?a=me', { method: 'GET' }),
   logout: () => call('auth.php?a=logout'),
   changePassword: (d) => call('auth.php?a=password', { body: d }),
+  deleteAccount: (password) => call('auth.php?a=delete', { body: { password } }),
 
   sync: (d) => call('sync.php', { body: d, timeout: 30000 }),
   ping: () => call('ping.php', { method: 'GET', timeout: 8000 }),

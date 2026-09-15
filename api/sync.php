@@ -297,6 +297,7 @@ if (random_int(1, 50) === 1) {
     $pdo->prepare('DELETE FROM share_codes WHERE expires_at < ?')->execute([$now]);
     $pdo->prepare('DELETE FROM cards WHERE deleted = 1 AND updated_at < ?')->execute([$cut]);
     $pdo->prepare('DELETE FROM card_codes WHERE expires_at < ?')->execute([$now]);
+    $pdo->prepare('DELETE FROM login_attempts WHERE at < ?')->execute([$now - 86400000]);
 }
 
 json_out($out);

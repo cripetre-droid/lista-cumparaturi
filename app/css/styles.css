@@ -1101,3 +1101,7 @@ img.sigla.alb { filter: brightness(0) invert(1); }
 .lc-sigla img.sigla { max-width: min(62%, 240px); height: 100%; object-position: left center; }
 .lc-subnume { font-size: 14px; font-weight: 600; opacity: .9; max-width: 40%; text-align: right; }
 
+/* ---------- linkuri legale pe ecranul de autentificare ---------- */
+.auth-legal { margin: 8px 0 0; text-align: center; font-size: 12.5px; color: var(--text-mute); }
+.auth-legal a { color: var(--text-dim); }
+

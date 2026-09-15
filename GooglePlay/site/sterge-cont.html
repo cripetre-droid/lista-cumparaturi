@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ștergerea contului — Lista de cumpărături</title>
+<meta name="description" content="Șterge definitiv contul din aplicația Lista de cumpărături și toate datele asociate.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #F2F6FC; --card: #FFFFFF; --text: #0E1B2C; --dim: #5A6B80; --line: #DDE7F3;
+    --primary: #1B65C0; --danger: #C8384A; --ok: #1E8E63;
+    --bar: linear-gradient(120deg, #14509D 0%, #1B65C0 55%, #2979D6 100%);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0A121D; --card: #142234; --text: #E6EEF9; --dim: #9DB0C7; --line: #223349; --primary: #6AA8F0; --danger: #E4697A; --ok: #45BE90; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  header { background: var(--bar); color: #fff; padding: 26px 18px 24px; }
+  header .in, main { max-width: 560px; margin: 0 auto; }
+  header h1 { margin: 0 0 4px; font-size: 25px; line-height: 1.2; }
+  header p { margin: 0; opacity: .88; font-size: 14.5px; }
+  main { padding: 18px 16px 48px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-bottom: 14px; }
+  h2 { font-size: 17px; margin: 0 0 8px; }
+  ul { padding-left: 20px; margin: 6px 0; }
+  li { margin-bottom: 5px; }
+  label { display: block; margin-bottom: 12px; }
+  label span { display: block; font-size: 13.5px; font-weight: 600; color: var(--dim); margin-bottom: 5px; }
+  input { width: 100%; height: 46px; border: 1.5px solid var(--line); border-radius: 12px; padding: 0 14px;
+          background: var(--bg); color: var(--text); font: inherit; outline: none; }
+  input:focus { border-color: var(--primary); }
+  .bifa { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; margin: 6px 0 16px; }
+  .bifa input { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+  button { width: 100%; height: 50px; border: 0; border-radius: 14px; background: var(--danger); color: #fff;
+           font: 700 16px system-ui, sans-serif; cursor: pointer; }
+  button[disabled] { opacity: .55; cursor: default; }
+  .mesaj { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 14.5px; }
+  .eroare { background: rgba(200,56,74,.12); color: var(--danger); }
+  .gata { background: rgba(30,142,99,.12); color: var(--ok); }
+  a { color: var(--primary); }
+  .mic { color: var(--dim); font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="in">
+    <h1>Ștergerea contului</h1>
+    <p>Aplicația „Lista de cumpărături” · lista.vireo.ro</p>
+  </div>
+</header>
+<main>
+
+<section>
+  <h2>Ce se întâmplă</h2>
+  <ul>
+    <li>se șterg <b>definitiv și imediat</b> contul, sesiunile, listele, produsele, cardurile de fidelitate și istoricul de produse;</li>
+    <li>listele și cardurile pe care le-ai <b>partajat</b> nu dispar de la ceilalți: trec la persoana care s-a alăturat prima;</li>
+    <li>datele nu mai pot fi recuperate.</li>
+  </ul>
+  <p class="mic">Poți face același lucru și din aplicație: meniul ⋮ → <i>Șterge contul</i>.</p>
+</section>
+
+<section id="formular">
+  <h2>Confirmă cu datele contului</h2>
+  <form id="f" autocomplete="on">
+    <label><span>E-mail</span><input type="email" id="email" required autocomplete="username"></label>
+    <label><span>Parolă</span><input type="password" id="parola" required autocomplete="current-password"></label>
+    <div class="bifa"><input type="checkbox" id="sigur"><label for="sigur" style="margin:0">Înțeleg că ștergerea este definitivă.</label></div>
+    <button type="submit" id="buton" disabled>Șterge contul definitiv</button>
+    <p class="mesaj eroare" id="eroare" hidden></p>
+  </form>
+</section>
+
+<section id="gata" hidden>
+  <h2>Contul a fost șters</h2>
+  <p class="mesaj gata">Contul și datele asociate au fost eliminate. Dacă aplicația mai e instalată pe un telefon,
+  la următoarea deschidere îți va cere din nou autentificarea.</p>
+</section>
+
+<section>
+  <h2>Nu mai ai acces la cont?</h2>
+  <p>Scrie-ne de pe adresa de e-mail a contului la <a href="mailto:{{EMAIL_CONTACT}}?subject=Stergere%20cont%20Lista%20de%20cumparaturi">{{EMAIL_CONTACT}}</a>,
+  cu subiectul „Ștergere cont”. Contul se șterge în cel mult 30 de zile și primești confirmarea pe e-mail.</p>
+  <p class="mic">Detalii despre date: <a href="confidentialitate.html">Politica de confidențialitate</a>.</p>
+</section>
+
+</main>
+<script>
+(function () {
+  var API = 'api/';
+  var f = document.getElementById('f');
+  var buton = document.getElementById('buton');
+  var sigur = document.getElementById('sigur');
+  var eroare = document.getElementById('eroare');
+
+  var MESAJE = {
+    date_gresite: 'E-mail sau parolă greșită.',
+    parola_gresita: 'Parola nu este corectă.',
+    prea_multe_incercari: 'Prea multe încercări. Mai așteaptă 15 minute.',
+    stergere_esuata: 'Contul nu a putut fi șters. Încearcă din nou.',
+  };
+
+  sigur.addEventListener('change', function () { buton.disabled = !sigur.checked; });
+
+  function cerere(cale, corp, token) {
+    var h = { 'Content-Type': 'application/json' };
+    if (token) h.Authorization = 'Bearer ' + token;
+    return fetch(API + cale, { method: 'POST', headers: h, body: JSON.stringify(corp), credentials: 'omit', cache: 'no-store' })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) {
+          if (!r.ok || d.error) throw new Error(d.error || 'eroare_' + r.status);
+          return d;
+        });
+      });
+  }
+
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!sigur.checked) return;
+    eroare.hidden = true;
+    buton.disabled = true;
+    buton.textContent = 'Un moment...';
+    var email = document.getElementById('email').value.trim();
+    var parola = document.getElementById('parola').value;
+    cerere('auth.php?a=login', { email: email, password: parola })
+      .then(function (r) { return cerere('auth.php?a=delete', { password: parola }, r.token); })
+      .then(function () {
+        document.getElementById('formular').hidden = true;
+        document.getElementById('gata').hidden = false;
+      })
+      .catch(function (err) {
+        eroare.textContent = MESAJE[err.message] || 'Nu am putut șterge contul (' + err.message + '). Verifică conexiunea și încearcă din nou.';
+        eroare.hidden = false;
+        buton.disabled = !sigur.checked;
+        buton.textContent = 'Șterge contul definitiv';
+      });
+  });
+})();
+</script>
+</body>
+</html>

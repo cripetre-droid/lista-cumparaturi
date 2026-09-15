@@ -1,0 +1,28 @@
+{
+  "packageId": "ro.vireo.lista",
+  "host": "lista.vireo.ro",
+  "name": "Lista de cumpărături",
+  "launcherName": "Lista",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#14509D",
+  "navigationColor": "#14509D",
+  "navigationColorDark": "#0B2E5C",
+  "backgroundColor": "#F2F6FC",
+  "startUrl": "/",
+  "iconUrl": "https://lista.vireo.ro/icons/icon-512.png",
+  "maskableIconUrl": "https://lista.vireo.ro/icons/icon-maskable.png",
+  "webManifestUrl": "https://lista.vireo.ro/manifest.webmanifest",
+  "fallbackType": "webview",
+  "enableNotifications": false,
+  "enableSiteSettingsShortcut": true,
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./semnare/upload-lista.jks",
+    "alias": "lista"
+  },
+  "appVersionName": "1.5.0",
+  "appVersionCode": 1,
+  "minSdkVersion": 21,
+  "generatorApp": "bubblewrap-cli"
+}

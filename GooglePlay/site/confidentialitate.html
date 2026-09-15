@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Politica de confidențialitate — Lista de cumpărături</title>
+<meta name="description" content="Ce date folosește aplicația Lista de cumpărături, de ce, unde sunt păstrate și cum le ștergi.">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #F2F6FC; --card: #FFFFFF; --text: #0E1B2C; --dim: #5A6B80; --line: #DDE7F3;
+    --primary: #1B65C0; --bar: linear-gradient(120deg, #14509D 0%, #1B65C0 55%, #2979D6 100%);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0A121D; --card: #142234; --text: #E6EEF9; --dim: #9DB0C7; --line: #223349; --primary: #6AA8F0; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  header { background: var(--bar); color: #fff; padding: 28px 18px 26px; }
+  header .in, main { max-width: 760px; margin: 0 auto; }
+  header h1 { margin: 0 0 4px; font-size: 26px; line-height: 1.2; }
+  header p { margin: 0; opacity: .88; font-size: 14.5px; }
+  main { padding: 18px 16px 48px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; margin-bottom: 14px; }
+  h2 { font-size: 18px; margin: 0 0 8px; }
+  ul { padding-left: 20px; margin: 8px 0; }
+  li { margin-bottom: 6px; }
+  a { color: var(--primary); }
+  .scurt { font-size: 17px; }
+  .mic { color: var(--dim); font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; font-size: 13.5px; }
+  .tabel { overflow-x: auto; }
+</style>
+</head>
+<body>
+<header>
+  <div class="in">
+    <h1>Politica de confidențialitate</h1>
+    <p>Aplicația „Lista de cumpărături” · lista.vireo.ro · ultima actualizare: {{DATA}}</p>
+  </div>
+</header>
+<main>
+
+<section>
+  <p class="scurt"><b>Pe scurt:</b> aplicația păstrează doar ce îi dai ca să funcționeze — contul, listele și
+  cardurile tale de fidelitate. Nu are reclame, nu te urmărește, nu vinde și nu dă datele nimănui.
+  Poți șterge oricând contul și toate datele, din aplicație sau de pe
+  <a href="sterge-cont.html">pagina de ștergere</a>.</p>
+</section>
+
+<section>
+  <h2>Cine răspunde de date</h2>
+  <p>Operatorul datelor este <b>{{NUME_OPERATOR}}</b>.<br>
+  Pentru orice întrebare despre datele tale: <a href="mailto:{{EMAIL_CONTACT}}">{{EMAIL_CONTACT}}</a>.</p>
+</section>
+
+<section>
+  <h2>Ce date folosim și de ce</h2>
+  <div class="tabel">
+  <table>
+    <tr><th>Date</th><th>De ce</th><th>Cât timp</th></tr>
+    <tr><td>Adresa de e-mail și numele (numele e opțional)</td><td>Contul tău; numele și e-mailul le văd doar persoanele cu care partajezi o listă sau un card</td><td>Cât timp ai cont</td></tr>
+    <tr><td>Parola</td><td>Autentificarea. Nu o păstrăm în clar, ci doar sub formă criptată ireversibil (bcrypt)</td><td>Cât timp ai cont</td></tr>
+    <tr><td>Listele, produsele, cantitățile și notițele</td><td>Funcționarea aplicației și sincronizarea între telefoane</td><td>Cât timp ai cont</td></tr>
+    <tr><td>Cardurile de fidelitate: magazinul, numărul cardului, tipul codului de bare, notița, lista de care e legat</td><td>Afișarea codului de bare la casă și sincronizarea între telefoane</td><td>Cât timp ai cont</td></tr>
+    <tr><td>Produsele adăugate anterior</td><td>Sugestiile când scrii un produs nou</td><td>Cât timp ai cont</td></tr>
+    <tr><td>Codurile de invitație pentru partajare</td><td>Ca altcineva să se poată alătura unei liste sau unui card</td><td>14 zile</td></tr>
+    <tr><td>Adresa IP, doar la încercările de autentificare eșuate</td><td>Protecția contului împotriva ghicirii parolei</td><td>Se șterge automat după aproximativ o zi</td></tr>
+    <tr><td>Elementele pe care le ștergi (liste, produse, carduri)</td><td>Ca ștergerea să ajungă și pe celelalte telefoane</td><td>Aproximativ 60 de zile, apoi se elimină definitiv</td></tr>
+  </table>
+  </div>
+  <p class="mic">Temeiul legal: executarea serviciului pe care îl ceri (art. 6 alin. 1 lit. b din GDPR) și, pentru
+  adresa IP, interesul legitim de a proteja conturile (art. 6 alin. 1 lit. f).</p>
+</section>
+
+<section>
+  <h2>Camera</h2>
+  <p>Camera se folosește doar când apeși tu să scanezi un card. Imaginea este analizată <b>numai pe telefon</b>,
+  ca să se citească numărul de sub codul de bare; nicio imagine sau înregistrare nu este trimisă pe server
+  și nu este salvată.</p>
+</section>
+
+<section>
+  <h2>Pe telefonul tău</h2>
+  <p>Aplicația păstrează o copie a listelor și cardurilor pe telefon, ca să meargă și fără internet. Tot pe telefon
+  (și numai acolo) rămân tema aleasă și care carduri folosești des. Ieșirea din cont șterge aceste date de pe telefon.</p>
+</section>
+
+<section>
+  <h2>Ce NU facem</h2>
+  <ul>
+    <li>nu afișăm reclame și nu folosim servicii de analiză sau de urmărire;</li>
+    <li>nu folosim cookie-uri de urmărire;</li>
+    <li>nu vindem, nu închiriem și nu dăm datele tale altor firme;</li>
+    <li>nu folosim date de localizare, contacte, fotografii sau microfon.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Unde sunt păstrate datele</h2>
+  <p>Pe un server găzduit de Romarg SRL, în România (Uniunea Europeană). Toată comunicarea dintre aplicație și
+  server este criptată (HTTPS). Datele nu sunt transferate în afara Uniunii Europene.</p>
+</section>
+
+<section>
+  <h2>Partajarea cu alte persoane</h2>
+  <p>Dacă partajezi o listă sau un card, persoana invitată vede conținutul acestuia, precum și numele și
+  e-mailul tău în secțiunea „Cine are acces”. Partajarea se face doar prin codul de invitație pe care îl
+  trimiți tu.</p>
+</section>
+
+<section>
+  <h2>Ștergerea contului</h2>
+  <ul>
+    <li><b>Din aplicație:</b> meniul ⋮ → <i>Șterge contul</i>, cu confirmare prin parolă;</li>
+    <li><b>De pe web</b>, fără aplicație: <a href="sterge-cont.html">lista.vireo.ro/sterge-cont.html</a>;</li>
+    <li>dacă nu mai ai acces la cont, scrie-ne la <a href="mailto:{{EMAIL_CONTACT}}">{{EMAIL_CONTACT}}</a>, de pe adresa contului.</li>
+  </ul>
+  <p>La ștergere se elimină imediat contul, sesiunile, listele și cardurile tale și istoricul de produse.
+  Listele și cardurile pe care le partajaseși cu alte persoane <b>nu dispar de la acestea</b>: trec la persoana
+  care s-a alăturat prima.</p>
+</section>
+
+<section>
+  <h2>Drepturile tale</h2>
+  <p>Conform GDPR ai dreptul de acces la date, de rectificare, de ștergere, de restricționare, de portabilitate
+  și de opoziție. Pentru oricare dintre ele scrie la <a href="mailto:{{EMAIL_CONTACT}}">{{EMAIL_CONTACT}}</a>;
+  răspundem în cel mult o lună. Ai și dreptul să depui o plângere la Autoritatea Națională de Supraveghere a
+  Prelucrării Datelor cu Caracter Personal (<a href="https://www.dataprotection.ro" rel="noopener">dataprotection.ro</a>).</p>
+</section>
+
+<section>
+  <h2>Copiii</h2>
+  <p>Aplicația nu se adresează copiilor sub 16 ani și nu colectează cu bună știință date despre aceștia.</p>
+</section>
+
+<section>
+  <h2>Mărcile magazinelor</h2>
+  <p>Siglele și denumirile magazinelor aparțin proprietarilor lor și sunt afișate doar ca să îți recunoști
+  cardurile. Aplicația nu este afiliată acestor magazine și nu comunică datele tale cu ele.</p>
+</section>
+
+<section>
+  <h2>Modificări</h2>
+  <p>Dacă schimbăm această politică, actualizăm data de mai sus. Schimbările importante le anunțăm în aplicație.</p>
+</section>
+
+</main>
+</body>
+</html>

@@ -1,7 +1,7 @@
 <?php
 /**
  * Conturi: inregistrare, autentificare, cine sunt, delogare, schimbare parola.
- * Endpoint: auth.php?a=register|login|me|logout|password
+ * Endpoint: auth.php?a=register|login|me|logout|password|delete
  */
 
 require __DIR__ . '/lib.php';
@@ -117,6 +117,57 @@ switch ($a) {
         // invalidam celelalte sesiuni
         $keep = hash('sha256', bearer_token());
         db()->prepare('DELETE FROM tokens WHERE user_id = ? AND token_hash <> ?')->execute([$u['id'], $keep]);
+        json_out(['ok' => true]);
+    }
+
+    case 'delete': {
+        // Stergerea definitiva a contului (ceruta si de Google Play).
+        // Se confirma cu parola, ca un telefon lasat deblocat sa nu poata sterge contul.
+        throttle_login();
+        $u = require_user();
+        $pass = (string) param('password', '');
+        $st = db()->prepare('SELECT pass_hash, email FROM users WHERE id = ?');
+        $st->execute([$u['id']]);
+        $rand = $st->fetch();
+        if (!$rand || !password_verify($pass, $rand['pass_hash'])) {
+            note_failed_login($u['email']);
+            fail('parola_gresita', 401);
+        }
+
+        asigura_schema_carduri();
+        $pdo = db();
+        $me = $u['id'];
+        $pdo->beginTransaction();
+        try {
+            // Listele si cardurile partajate nu dispar de la ceilalti: trec la cel mai vechi membru.
+            $transfera = function (string $tabel, string $tabelMembri, string $col) use ($pdo, $me) {
+                $st = $pdo->prepare("SELECT id FROM $tabel WHERE owner_id = ?");
+                $st->execute([$me]);
+                foreach (array_column($st->fetchAll(), 'id') as $id) {
+                    $m = $pdo->prepare("SELECT user_id FROM $tabelMembri WHERE $col = ? AND user_id <> ? ORDER BY joined_at ASC LIMIT 1");
+                    $m->execute([$id, $me]);
+                    $urmas = $m->fetchColumn();
+                    if ($urmas) {
+                        $pdo->prepare("UPDATE $tabel SET owner_id = ?, updated_at = ? WHERE id = ?")->execute([$urmas, now_ms(), $id]);
+                        $pdo->prepare("DELETE FROM $tabelMembri WHERE $col = ? AND user_id = ?")->execute([$id, $urmas]);
+                    }
+                }
+            };
+            $transfera('lists', 'list_members', 'list_id');
+            $transfera('cards', 'card_members', 'card_id');
+
+            // restul se sterge in cascada: sesiuni, liste si produse proprii, carduri proprii,
+            // apartenenta la liste/carduri partajate, istoricul de sugestii
+            $pdo->prepare('DELETE FROM share_codes WHERE created_by = ?')->execute([$me]);
+            $pdo->prepare('DELETE FROM card_codes WHERE created_by = ?')->execute([$me]);
+            $pdo->prepare('DELETE FROM login_attempts WHERE email = ?')->execute([$rand['email']]);
+            $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$me]);
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            error_log('stergere cont: ' . $e->getMessage());
+            fail('stergere_esuata', 500);
+        }
         json_out(['ok' => true]);
     }
 

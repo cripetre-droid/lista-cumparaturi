@@ -47,6 +47,21 @@ Get-ChildItem $api -Recurse -File -Force | Where-Object { $excluse -notcontains 
   Adauga-Fisier $_.FullName $rel
 }
 
+# 3. paginile cerute de Google Play: politica de confidentialitate, stergerea contului, assetlinks
+$gp = Join-Path $radacina 'GooglePlay'
+$siteGata = Join-Path $gp 'site-gata'
+$paginiGp = $false
+if (Test-Path (Join-Path $gp 'pregateste-site.mjs')) {
+  & node (Join-Path $gp 'pregateste-site.mjs') | Out-Null
+  if ($LASTEXITCODE -eq 0 -and (Test-Path $siteGata)) {
+    Get-ChildItem $siteGata -Recurse -File -Force | ForEach-Object {
+      $rel = $_.FullName.Substring($siteGata.Length + 1)
+      Adauga-Fisier $_.FullName $rel
+    }
+    $paginiGp = $true
+  }
+}
+
 $arhiva.Dispose()
 
 $dim = [math]::Round((Get-Item $zip).Length / 1KB, 1)
@@ -55,3 +70,4 @@ Write-Host "Gata: $zip ($dim KB)" -ForegroundColor Green
 Write-Host "Urca-l in /home/rvir1227/lista/ si extrage-l acolo (Extract din File Manager)."
 Write-Host "ATENTIE: config.php nu e in arhiva - se creeaza o singura data pe server."
 if (-not $Instalare) { Write-Host "Arhiva de ACTUALIZARE: fara install.php si verifica.php." -ForegroundColor Yellow }
+if (-not $paginiGp) { Write-Host "FARA paginile Google Play: completeaza GooglePlay\date-publice.json (nume + e-mail)." -ForegroundColor Yellow }

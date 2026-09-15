@@ -5,7 +5,10 @@
 
 import { createRequire } from 'node:module';
 const require_ = createRequire(import.meta.url);
-const { chromium } = require_('D:/VIREO/AI/incadrare/node_modules/playwright-core/index.js');
+const { chromium, firefox } = require_('D:/VIREO/AI/incadrare/node_modules/playwright-core/index.js');
+
+// BROWSER=firefox node dev/test-ui.mjs  -> ruleaza toata suita in Firefox
+const FIREFOX = process.env.BROWSER === 'firefox';
 import fs from 'node:fs';
 import { scrieVideoEan13 } from './cod-video.mjs';
 import { spawn } from 'node:child_process';
@@ -13,7 +16,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const AICI = path.dirname(fileURLToPath(import.meta.url));
-const CAPTURI = path.join(AICI, 'capturi');
+const CAPTURI = path.join(AICI, FIREFOX ? 'capturi-firefox' : 'capturi');
 fs.mkdirSync(CAPTURI, { recursive: true });
 
 // pornim propriul server, ca fiecare rulare sa plece de la zero
@@ -42,25 +45,34 @@ const EDGE = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 // camera falsa: un video cu un cod de bare EAN-13, ca sa testam scanarea ca pe telefon
 const VIDEO = path.join(CAPTURI, 'camera-ean13.y4m');
 const COD_SCANAT = scrieVideoEan13(VIDEO, '594123456789');
-const browser = await chromium.launch({
-  executablePath: EDGE,
-  args: [
-    '--use-fake-ui-for-media-stream',
-    '--use-fake-device-for-media-stream',
-    '--use-file-for-fake-video-capture=' + VIDEO,
-  ],
-});
-const ctx = await browser.newContext({
-  viewport: { width: 412, height: 892 },
-  deviceScaleFactor: 2,
-  isMobile: true,
-  hasTouch: true,
-  locale: 'ro-RO',
-});
+const browser = FIREFOX
+  // Firefox nu poate primi un fisier video drept camera; primeste o camera falsa generica
+  ? await firefox.launch({
+    firefoxUserPrefs: {
+      'media.navigator.streams.fake': true,
+      'media.navigator.permission.disabled': true,
+    },
+  })
+  : await chromium.launch({
+    executablePath: EDGE,
+    args: [
+      '--use-fake-ui-for-media-stream',
+      '--use-fake-device-for-media-stream',
+      '--use-file-for-fake-video-capture=' + VIDEO,
+    ],
+  });
+const OPT_CONTEXT = FIREFOX
+  ? { viewport: { width: 412, height: 892 }, deviceScaleFactor: 2, hasTouch: true, locale: 'ro-RO' }
+  : { viewport: { width: 412, height: 892 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'ro-RO' };
+console.log('Browser: ' + (FIREFOX ? 'Firefox ' : 'Edge (Chromium) ') + browser.version());
+const ctx = await browser.newContext(OPT_CONTEXT);
 const page = await ctx.newPage();
 
+let asteptat401 = false;   // o parola gresita data intentionat produce un 401 in consola
 page.on('console', (m) => {
-  if (m.type() === 'error') { console.log('  [consola]', m.text()); erori.push('eroare in consola: ' + m.text()); }
+  if (m.type() !== 'error') return;
+  if (asteptat401 && /status of 401/.test(m.text())) { asteptat401 = false; return; }
+  console.log('  [consola]', m.text()); erori.push('eroare in consola: ' + m.text());
 });
 page.on('pageerror', (e) => { console.log('  [pagina]', e.message); erori.push('exceptie: ' + e.message); });
 
@@ -222,7 +234,7 @@ verifica(dupaReload === 6, 'produsele s-au pastrat dupa reincarcare (gasite: ' +
 await shot(page, 'dupa-reincarcare');
 
 console.log('13. Al doilea utilizator intra cu codul');
-const ctx2 = await ctx.browser().newContext({ viewport: { width: 412, height: 892 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'ro-RO' });
+const ctx2 = await ctx.browser().newContext(OPT_CONTEXT);
 const p2 = await ctx2.newPage();
 p2.on('pageerror', (e) => erori.push('exceptie utilizator 2: ' + e.message));
 await p2.goto(BAZA, { waitUntil: 'networkidle' });
@@ -253,7 +265,7 @@ await page.click('#btnMenuItems');
 await page.waitForTimeout(200);
 await page.keyboard.press('Escape');
 await page.click('#btnBack');
-await page.waitForTimeout(200);
+await page.waitForTimeout(400);
 await page.click('#btnMenuLists');
 await page.click('#sheet .sheet-item:has-text("Sincronizează acum")');
 await page.waitForTimeout(2000);
@@ -328,7 +340,7 @@ verifica(pinguriNoi >= 2, 'se fac verificari dese (' + pinguriNoi + ' in 12 s)')
 verifica(syncNoi === 0, 'niciuna nu a cerut sincronizare completa (' + syncNoi + ')');
 
 console.log('19. Carduri: ecranul gol');
-await ctx.grantPermissions(['camera'], { origin: BAZA });
+if (!FIREFOX) await ctx.grantPermissions(['camera'], { origin: BAZA });
 await page.evaluate(() => { location.hash = ''; });
 await page.waitForTimeout(400);
 await page.click('#tabCards');
@@ -346,11 +358,27 @@ await page.click('.panou .magazin[data-store="mega"]');
 await page.waitForSelector('.panou-scaner video', { timeout: 5000 });
 await shot(page, 'carduri-scaner');
 let formular = false;
-try {
-  await page.waitForSelector('#cardNumar', { timeout: 20000 });
+if (FIREFOX) {
+  // camera generica nu arata un cod de bare: verificam ca porneste, apoi scriem numarul
+  await page.waitForTimeout(2500);
+  const camera = await page.evaluate(() => {
+    const v = document.querySelector('.panou-scaner video');
+    const e = document.querySelector('.scan-eroare');
+    return { ruleaza: !!(v && v.srcObject && v.videoWidth > 0), eroare: e && !e.hidden ? e.textContent : '' };
+  });
+  verifica(camera.ruleaza && !camera.eroare, 'camera porneste in Firefox (' + (camera.eroare || 'fara eroare') + ')');
+  await page.click('.btn-scan-manual');
+  await page.waitForSelector('#cardNumar');
+  await page.fill('#cardNumar', COD_SCANAT);
+  await page.waitForTimeout(300);
   formular = true;
-} catch (e) { /* nu a citit codul */ }
-verifica(formular, 'camera a citit codul de bare si a deschis formularul');
+} else {
+  try {
+    await page.waitForSelector('#cardNumar', { timeout: 20000 });
+    formular = true;
+  } catch (e) { /* nu a citit codul */ }
+  verifica(formular, 'camera a citit codul de bare si a deschis formularul');
+}
 if (formular) {
   const numar = await page.inputValue('#cardNumar');
   const format = await page.inputValue('#cardFormat');
@@ -569,6 +597,66 @@ await page.click('.list-card:has-text("Bebe Tei") .row-btn:not(.drag-handle)');
 await page.waitForSelector('#sheet:not([hidden])');
 verifica(await page.isVisible('#sheet .sheet-item:has-text("Leagă un card de fidelitate")'), 'optiunea exista si in meniul de pe ecranul cu liste');
 await page.keyboard.press('Escape');
+
+console.log('29. Pagini cerute de Google Play');
+{
+  const r1 = await fetch(BAZA + '/confidentialitate.html');
+  const t1 = await r1.text();
+  verifica(r1.status === 200 && t1.includes('Politica de confidențialitate') && !/\{\{[A-Z_]+\}\}/.test(t1), 'politica de confidentialitate e publicata si completata');
+  const r2 = await fetch(BAZA + '/sterge-cont.html');
+  verifica(r2.status === 200 && (await r2.text()).includes('Ștergerea contului'), 'pagina de stergere a contului e publicata');
+  const r3 = await fetch(BAZA + '/.well-known/assetlinks.json');
+  const al = await r3.json().catch(() => null);
+  verifica(r3.status === 200 && (r3.headers.get('content-type') || '').includes('application/json'), 'assetlinks.json se serveste ca JSON');
+  verifica(al && al[0].target.package_name === 'ro.vireo.lista' && al[0].target.sha256_cert_fingerprints.length >= 1, 'assetlinks.json are pachetul si amprenta cheii');
+}
+await page.goto(BAZA, { waitUntil: 'networkidle' });
+await page.waitForTimeout(500);
+await page.click('#btnMenuLists');
+await page.waitForSelector('#sheet:not([hidden])');
+verifica(await page.isVisible('#sheet .sheet-item:has-text("Politica de confidențialitate")'), 'meniul are link la politica de confidentialitate');
+verifica(await page.isVisible('#sheet .sheet-item:has-text("Șterge contul")'), 'meniul are "Șterge contul"');
+await page.keyboard.press('Escape');
+
+console.log('30. Stergerea contului din aplicatie (lista partajata trece la celalalt)');
+await page.click('#btnMenuLists');
+await page.waitForSelector('#sheet:not([hidden])');
+await page.click('#sheet .sheet-item:has-text("Șterge contul")');
+await page.waitForSelector('#stergeParola');
+await page.fill('#stergeParola', 'gresita123');
+asteptat401 = true;
+await page.click('#stergeConfirm');
+await page.waitForTimeout(500);
+verifica(await page.isVisible('#dialog .auth-error'), 'cu parola gresita contul NU se sterge');
+await shot(page, 'sterge-cont-aplicatie');
+await page.fill('#stergeParola', 'parolatest123');
+await page.click('#stergeConfirm');
+await page.waitForSelector('#auth:not(.hidden)', { timeout: 5000 });
+verifica(true, 'dupa stergere apare ecranul de autentificare');
+const reLogin = await fetch(BAZA + '/api/auth.php?a=login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'test@vireo.ro', password: 'parolatest123' }) });
+verifica(reLogin.status === 401, 'contul sters nu se mai poate autentifica');
+
+await p2.goto(BAZA, { waitUntil: 'networkidle' });
+await p2.evaluate(() => { location.hash = ''; });
+await p2.waitForTimeout(400);
+await p2.click('#btnMenuLists');
+await p2.click('#sheet .sheet-item:has-text("Sincronizează acum")');
+await p2.waitForTimeout(1500);
+verifica((await p2.locator('.list-card:has-text("Mega")').count()) === 1, 'lista partajata "Mega" a ramas la al doilea utilizator');
+
+console.log('31. Stergerea contului de pe pagina web (fara aplicatie)');
+const pw = await ctx.newPage();
+await pw.goto(BAZA + '/sterge-cont.html', { waitUntil: 'networkidle' });
+verifica(await pw.isDisabled('#buton'), 'butonul e blocat pana bifezi ca intelegi');
+await pw.fill('#email', 'ana@vireo.ro');
+await pw.fill('#parola', 'parolatest123');
+await pw.check('#sigur');
+await pw.click('#buton');
+await pw.waitForSelector('#gata:not([hidden])', { timeout: 5000 }).catch(() => {});
+verifica(await pw.isVisible('#gata'), 'pagina web confirma stergerea');
+await pw.screenshot({ path: path.join(CAPTURI, '96-sterge-cont-web.png'), fullPage: true });
+const reLogin2 = await fetch(BAZA + '/api/auth.php?a=login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'ana@vireo.ro', password: 'parolatest123' }) });
+verifica(reLogin2.status === 401, 'contul sters de pe web nu se mai poate autentifica');
 
 await browser.close();
 srv.kill();

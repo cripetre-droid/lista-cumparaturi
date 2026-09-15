@@ -8,13 +8,16 @@ import {
   state, load, save, resetAll, uid, now, norm, mutate,
   canUndo, canRedo, undo, redo, undoLabel, clearUndo,
   visibleLists, listItems, listStats, nextPosition, nextListPosition,
-  rememberProduct, localSuggestions,
+  rememberProduct, localSuggestions, cardsForList,
 } from './store.js';
 import { sync, syncSoon, startAuto, onSync, hasPending, noteInteraction } from './sync.js';
 import {
   $, $$, el, escapeHtml, highlight, icon, sheet, closeSheet,
   askText, confirmBox, dialogHtml, closeDialog, snack, hideSnack, badge, makeSortable,
 } from './ui.js';
+import {
+  initCarduri, randeazaCarduri, randeazaCard, parasesteCard, cardNou, meniuSortare, cardulListei,
+} from './cards.js';
 
 /* ---------------- constante ---------------- */
 
@@ -29,6 +32,8 @@ const ui = {
   listId: null,
   qLists: '',
   qItems: '',
+  qCards: '',
+  cardId: null,
   unit: '',
   authMode: 'login',
 };
@@ -40,6 +45,7 @@ const ui = {
 function boot() {
   load();
   aplicaTema(state.theme || 'auto');
+  initCarduri({ randeaza, aratUndo, deschideLista, deschideCard, inapoiLaCarduri });
   legaEvenimente();
 
   onSync((st, info) => {
@@ -160,13 +166,42 @@ async function deconecteaza() {
 function ruteazaDinUrl() {
   const h = location.hash || '';
   const m = h.match(/^#\/l\/([a-f0-9]{32})/);
+  const c = h.match(/^#\/c\/([a-f0-9]{32})/);
   if (m && state.lists[m[1]] && !state.lists[m[1]].deleted) {
     ui.screen = 'items';
     ui.listId = m[1];
+  } else if (c && state.cards[c[1]] && !state.cards[c[1]].deleted) {
+    ui.screen = 'card';
+    ui.cardId = c[1];
+  } else if (/^#\/c/.test(h)) {
+    ui.screen = 'cards';
+    ui.cardId = null;
   } else {
     ui.screen = 'lists';
     ui.listId = null;
   }
+}
+
+function deschideCard(id) {
+  ui.cardId = id;
+  ui.screen = 'card';
+  location.hash = '#/c/' + id;
+  randeaza();
+  setTimeout(() => $('#cardContent').scrollTo(0, 0), 0);
+}
+
+function inapoiLaCarduri() {
+  if (/^#\/c\//.test(location.hash) && history.length > 1) history.back();
+  else mergiLaTab('cards');
+}
+
+/** Bara de jos: schimbarea tab-ului nu adauga pasi in istoric. */
+function mergiLaTab(tab) {
+  const hash = tab === 'cards' ? '#/c' : '';
+  const url = location.pathname + location.search + hash;
+  if ((location.hash || '') !== hash) history.replaceState(null, '', url);
+  ruteazaDinUrl();
+  randeaza();
 }
 
 function deschideLista(id) {
@@ -196,20 +231,39 @@ window.addEventListener('hashchange', () => {
 
 function randeaza() {
   if (!state.token) return;
-  const peListe = ui.screen === 'lists';
-  $('#screenLists').classList.toggle('hidden', !peListe);
-  $('#screenItems').classList.toggle('hidden', peListe);
+  // un card sters (sau pierdut la sincronizare) nu mai poate fi aratat
+  if (ui.screen === 'card' && (!state.cards[ui.cardId] || state.cards[ui.cardId].deleted)) {
+    ui.screen = 'cards';
+    history.replaceState(null, '', location.pathname + location.search + '#/c');
+  }
+
+  const ecran = ui.screen;
+  $('#screenLists').classList.toggle('hidden', ecran !== 'lists');
+  $('#screenItems').classList.toggle('hidden', ecran !== 'items');
+  $('#screenCards').classList.toggle('hidden', ecran !== 'cards');
+  $('#screenCard').classList.toggle('hidden', ecran !== 'card');
   $('#auth').classList.add('hidden');
 
-  $('#btnUndoLists').hidden = !canUndo();
-  $('#btnUndoItems').hidden = !canUndo();
+  const cuTabbar = ecran === 'lists' || ecran === 'cards';
+  $('#tabbar').hidden = !cuTabbar;
+  document.body.classList.toggle('cu-tabbar', cuTabbar);
+  $('#tabLists').classList.toggle('on', ecran === 'lists');
+  $('#tabCards').classList.toggle('on', ecran === 'cards');
 
-  if (peListe) randeazaListe();
-  else randeazaArticole();
+  for (const b of ['#btnUndoLists', '#btnUndoItems', '#btnUndoCards', '#btnUndoCard']) $(b).hidden = !canUndo();
 
-  // notificarea cu "Anulează" nu trebuie sa acopere bara de adaugare
-  const inaltimeComposer = peListe ? 0 : ($('#composer').offsetHeight || 0);
-  document.documentElement.style.setProperty('--snack-lift', inaltimeComposer + 'px');
+  if (ecran !== 'card') parasesteCard();
+
+  if (ecran === 'lists') randeazaListe();
+  else if (ecran === 'items') randeazaArticole();
+  else if (ecran === 'cards') randeazaCarduri(ui.qCards);
+  else if (ecran === 'card') randeazaCard(ui.cardId);
+
+  // notificarea cu "Anulează" nu trebuie sa acopere bara de adaugare sau tab-urile
+  let ridicare = 0;
+  if (ecran === 'items') ridicare = $('#composer').offsetHeight || 0;
+  else if (cuTabbar) ridicare = $('#tabbar').offsetHeight || 0;
+  document.documentElement.style.setProperty('--snack-lift', ridicare + 'px');
 }
 
 /* ---------------- ecranul cu liste ---------------- */
@@ -310,6 +364,7 @@ function randeazaArticole() {
   if (!lista || lista.deleted) { ui.screen = 'lists'; location.hash = ''; randeazaListe(); return; }
 
   $('#itemsTitle').textContent = lista.name;
+  $('#btnCardList').hidden = cardsForList(lista.id).length === 0;
   const culoare = CULORI[lista.color % CULORI.length] || CULORI[0];
   document.documentElement.style.setProperty('--list-color', culoare);
 
@@ -951,7 +1006,7 @@ async function iesiDinLista(listId) {
 
 async function intraInLista(codInitial) {
   const r = await askText({
-    title: 'Intră într-o listă partajată',
+    title: 'Intră cu un cod de invitație',
     label: 'Codul primit',
     value: codInitial || '',
     placeholder: 'ex: K7M2QAP',
@@ -962,7 +1017,12 @@ async function intraInLista(codInitial) {
     badge('Verific codul...', { ms: 0 });
     const res = await api.shareJoin(r.text.trim().toUpperCase());
     await sync({ full: true });
-    badge('Ai intrat în „' + res.name + '”');
+    if (res.kind === 'card') {
+      badge('Ai primit cardul „' + res.name + '”');
+      if (state.cards[res.card_id]) { mergiLaTab('cards'); deschideCard(res.card_id); return; }
+    } else {
+      badge('Ai intrat în „' + res.name + '”');
+    }
     randeaza();
   } catch (e) {
     badge(mesajEroare(e), { error: true, ms: 3000 });
@@ -976,7 +1036,7 @@ async function intraInLista(codInitial) {
 function meniuGeneral() {
   const t = state.theme || 'auto';
   sheet(state.user ? (state.user.name || state.user.email) : 'Meniu', [
-    { icon: 'join', text: 'Intră într-o listă partajată', run: () => intraInLista() },
+    { icon: 'join', text: 'Intră cu un cod de invitație', run: () => intraInLista() },
     { icon: 'redo', text: 'Sincronizează acum', run: () => sync({ full: false }) },
     '-',
     { icon: 'sun', text: 'Temă deschisă', on: t === 'light', run: () => aplicaTema('light', true) },
@@ -1088,6 +1148,13 @@ function faRedo() {
    ========================================================= */
 
 function comutaCautare(unde) {
+  if (unde === 'cards') {
+    const bar = $('#searchbarCards');
+    bar.hidden = !bar.hidden;
+    if (!bar.hidden) $('#qCards').focus();
+    else { ui.qCards = ''; $('#qCards').value = ''; randeaza(); }
+    return;
+  }
   if (unde === 'lists') {
     const bar = $('#searchbarLists');
     bar.hidden = !bar.hidden;
@@ -1241,6 +1308,26 @@ function legaEvenimente() {
   $('#qLists').addEventListener('input', (e) => { ui.qLists = e.target.value; randeazaListe(); });
   $('#btnUndoLists').addEventListener('click', faUndo);
 
+  // bara de jos
+  $('#tabLists').addEventListener('click', () => mergiLaTab('lists'));
+  $('#tabCards').addEventListener('click', () => mergiLaTab('cards'));
+
+  // carduri
+  $('#fabAddCard').addEventListener('click', cardNou);
+  $('#btnMenuCards').addEventListener('click', meniuGeneral);
+  $('#btnSortCards').addEventListener('click', meniuSortare);
+  $('#btnSearchCards').addEventListener('click', () => comutaCautare('cards'));
+  $('#btnClearQCards').addEventListener('click', () => { ui.qCards = ''; $('#qCards').value = ''; $('#qCards').focus(); randeaza(); });
+  $('#qCards').addEventListener('input', (e) => { ui.qCards = e.target.value; randeazaCarduri(ui.qCards); });
+  $('#btnUndoCards').addEventListener('click', faUndo);
+  $('#btnUndoCard').addEventListener('click', faUndo);
+  $('#btnBackCard').addEventListener('click', inapoiLaCarduri);
+  $('#btnShareCard').addEventListener('click', () => {
+    const b = Array.from(document.querySelectorAll('#cardManage .gest')).find((x) => /Partajează/.test(x.textContent));
+    if (b) b.click();
+  });
+  $('#btnCardList').addEventListener('click', () => cardulListei(ui.listId));
+
   // ecranul cu articole
   $('#btnBack').addEventListener('click', inapoiLaListe);
   $('#btnMenuItems').addEventListener('click', meniuArticole);
@@ -1271,6 +1358,7 @@ function legaEvenimente() {
   // tragere in jos = verifica acum
   activeazaTragerea($('#listsContent'));
   activeazaTragerea($('#itemsContent'));
+  activeazaTragerea($('#cardsContent'));
 
   // reordonare
   makeSortable($('#listsWrap'), {
@@ -1308,7 +1396,7 @@ function legaEvenimente() {
       closeSheet(); closeDialog(); hideSnack();
     } else if (e.key === '/' && !inCamp) {
       e.preventDefault();
-      comutaCautare(ui.screen === 'lists' ? 'lists' : 'items');
+      if (ui.screen !== 'card') comutaCautare(ui.screen);
     }
   });
 

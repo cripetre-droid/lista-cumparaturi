@@ -14,7 +14,10 @@ const AICI = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.join(AICI, '..', 'app');
 const PORT = Number(process.env.PORT || 8787);
 
-const db = { users: [], tokens: new Map(), lists: new Map(), items: new Map(), members: [], history: new Map(), codes: new Map() };
+const db = {
+  users: [], tokens: new Map(), lists: new Map(), items: new Map(), members: [], history: new Map(), codes: new Map(),
+  cards: new Map(), cardMembers: [], cardCodes: new Map(),
+};
 
 const TIPURI = {
   '.html': 'text/html; charset=utf-8',
@@ -44,6 +47,13 @@ function user(req) {
   const h = req.headers.authorization || '';
   const t = h.startsWith('Bearer ') ? h.slice(7) : '';
   return db.tokens.get(t) || null;
+}
+
+function cardAccesibile(uid_) {
+  const ids = [];
+  for (const c of db.cards.values()) if (c.owner_id === uid_) ids.push(c.id);
+  for (const m of db.cardMembers) if (m.user_id === uid_ && !ids.includes(m.card_id)) ids.push(m.card_id);
+  return ids;
 }
 
 function accesibile(uid_) {
@@ -139,9 +149,28 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
+      const accC = new Set(cardAccesibile(me));
+      for (const c of body.cards || []) {
+        const cur = db.cards.get(c.id);
+        if (!cur) {
+          db.cards.set(c.id, { ...c, owner_id: me, updated_at: now });
+          accC.add(c.id);
+        } else if (accC.has(c.id)) {
+          if (c.deleted && cur.owner_id !== me) {
+            db.cardMembers = db.cardMembers.filter((m) => !(m.card_id === c.id && m.user_id === me));
+            continue;
+          }
+          db.cards.set(c.id, { ...cur, ...c, owner_id: cur.owner_id, updated_at: now });
+        }
+      }
+
       const ids = accesibile(me);
+      const cardIds = cardAccesibile(me);
       const out = {
         now,
+        cards: [...db.cards.values()].filter((c) => cardIds.includes(c.id) && c.updated_at > since)
+          .map((c) => ({ ...c, owner: c.owner_id === me ? 1 : 0, owner_id: undefined })),
+        card_shared: {},
         full: since === 0,
         lists: [...db.lists.values()].filter((l) => ids.includes(l.id) && l.updated_at > since)
           .map((l) => ({ ...l, owner: l.owner_id === me ? 1 : 0, owner_id: undefined })),
@@ -151,8 +180,28 @@ const server = http.createServer(async (req, res) => {
       for (const m of db.members) {
         if (ids.includes(m.list_id)) out.shared[m.list_id] = (out.shared[m.list_id] || 1) + 1;
       }
-      if (since === 0) out.all_list_ids = ids;
+      for (const m of db.cardMembers) {
+        if (cardIds.includes(m.card_id)) out.card_shared[m.card_id] = (out.card_shared[m.card_id] || 1) + 1;
+      }
+      if (since === 0) { out.all_list_ids = ids; out.all_card_ids = cardIds; }
       return json(res, out);
+    }
+
+    if (fisier === 'share.php' && a === 'create' && body.card_id) {
+      const cod = crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 7);
+      db.cardCodes.set(cod, body.card_id);
+      return json(res, { code: cod, expira: '14 zile' });
+    }
+    if (fisier === 'share.php' && a === 'join' && db.cardCodes.has(String(body.code || '').toUpperCase())) {
+      const cardId = db.cardCodes.get(String(body.code || '').toUpperCase());
+      if (!db.cardMembers.find((m) => m.card_id === cardId && m.user_id === me)) db.cardMembers.push({ card_id: cardId, user_id: me });
+      const c = db.cards.get(cardId);
+      c.updated_at = acum();
+      return json(res, { ok: true, kind: 'card', card_id: cardId, name: c.name });
+    }
+    if (fisier === 'share.php' && a === 'leave' && body.card_id) {
+      db.cardMembers = db.cardMembers.filter((m) => !(m.card_id === body.card_id && m.user_id === me));
+      return json(res, { ok: true });
     }
 
     if (fisier === 'share.php' && a === 'create') {
@@ -191,6 +240,8 @@ const server = http.createServer(async (req, res) => {
       let ultim = 0;
       for (const l of db.lists.values()) if (ids.includes(l.id) && l.updated_at > ultim) ultim = l.updated_at;
       for (const i of db.items.values()) if (ids.includes(i.list_id) && i.updated_at > ultim) ultim = i.updated_at;
+      const cids = cardAccesibile(me);
+      for (const c of db.cards.values()) if (cids.includes(c.id) && c.updated_at > ultim) ultim = c.updated_at;
       db.pinguri = (db.pinguri || 0) + 1;
       return json(res, { now: acum(), ultim });
     }

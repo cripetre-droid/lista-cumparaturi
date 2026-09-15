@@ -108,6 +108,8 @@ foreach ($sql as $q) {
     preg_match('/EXISTS (\w+)/', $q, $m);
     $done[] = $m[1] ?? '?';
 }
+asigura_schema_carduri();
+array_push($done, 'cards', 'card_members', 'card_codes');
 
 $folosit = '(necunoscut)';
 foreach (fisiere_config() as $f) {

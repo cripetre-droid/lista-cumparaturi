@@ -13,7 +13,8 @@
 require __DIR__ . '/lib.php';
 cors();
 
-$u = require_user();
+$u  = require_user();
+$me = $u['id'];
 
 $st = db()->prepare(
     'SELECT MAX(u) AS ultim FROM (
@@ -29,9 +30,24 @@ $st = db()->prepare(
          WHERE l.owner_id = ? OR m.user_id IS NOT NULL
      ) t'
 );
-$st->execute([$u['id'], $u['id'], $u['id'], $u['id']]);
+$st->execute([$me, $me, $me, $me]);
+$ultim = (int) $st->fetchColumn();
+
+// cardurile: tabelul poate lipsi pe un server inca neactualizat
+try {
+    $st = db()->prepare(
+        'SELECT MAX(c.updated_at)
+           FROM cards c
+           LEFT JOIN card_members m ON m.card_id = c.id AND m.user_id = ?
+          WHERE c.owner_id = ? OR m.user_id IS NOT NULL'
+    );
+    $st->execute([$me, $me]);
+    $ultim = max($ultim, (int) $st->fetchColumn());
+} catch (PDOException $e) {
+    // fara carduri inca - nimic de raportat
+}
 
 json_out([
     'now'   => now_ms(),
-    'ultim' => (int) $st->fetchColumn(),
+    'ultim' => $ultim,
 ]);

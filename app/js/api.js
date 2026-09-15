@@ -23,6 +23,7 @@ const MESAJE = {
   cod_invalid: 'Codul nu este valid sau a expirat.',
   prea_multe_incercari: 'Prea multe încercări. Mai așteaptă 15 minute.',
   lista_inexistenta: 'Lista nu mai există.',
+  card_inexistent: 'Cardul nu mai există.',
   doar_proprietarul: 'Doar cel care a creat lista poate face asta.',
   origine_neautorizata: 'Serverul nu acceptă cereri de la această adresă.',
   server_neconfigurat: 'Serverul nu este configurat încă.',
@@ -80,6 +81,10 @@ export const api = {
   ping: () => call('ping.php', { method: 'GET', timeout: 8000 }),
 
   shareCreate: (listId) => call('share.php?a=create', { body: { list_id: listId } }),
+  cardShareCreate: (cardId) => call('share.php?a=create', { body: { card_id: cardId } }),
+  cardShareMembers: (cardId) => call('share.php?a=members', { body: { card_id: cardId } }),
+  cardShareRemove: (cardId, userId) => call('share.php?a=remove', { body: { card_id: cardId, user_id: userId } }),
+  cardShareLeave: (cardId) => call('share.php?a=leave', { body: { card_id: cardId } }),
   shareJoin: (code) => call('share.php?a=join', { body: { code } }),
   shareMembers: (listId) => call('share.php?a=members', { body: { list_id: listId } }),
   shareRemove: (listId, userId) => call('share.php?a=remove', { body: { list_id: listId, user_id: userId } }),

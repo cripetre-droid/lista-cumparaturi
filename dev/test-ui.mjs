@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 const require_ = createRequire(import.meta.url);
 const { chromium } = require_('D:/VIREO/AI/incadrare/node_modules/playwright-core/index.js');
 import fs from 'node:fs';
+import { scrieVideoEan13 } from './cod-video.mjs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,7 +39,17 @@ function verifica(conditie, mesaj) {
 }
 
 const EDGE = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
-const browser = await chromium.launch({ executablePath: EDGE });
+// camera falsa: un video cu un cod de bare EAN-13, ca sa testam scanarea ca pe telefon
+const VIDEO = path.join(CAPTURI, 'camera-ean13.y4m');
+const COD_SCANAT = scrieVideoEan13(VIDEO, '594123456789');
+const browser = await chromium.launch({
+  executablePath: EDGE,
+  args: [
+    '--use-fake-ui-for-media-stream',
+    '--use-fake-device-for-media-stream',
+    '--use-file-for-fake-video-capture=' + VIDEO,
+  ],
+});
 const ctx = await browser.newContext({
   viewport: { width: 412, height: 892 },
   deviceScaleFactor: 2,
@@ -223,7 +234,7 @@ await p2.click('#authSubmit');
 await p2.waitForSelector('#screenLists:not(.hidden)');
 await p2.click('#btnMenuLists');
 await p2.waitForSelector('#sheet:not([hidden])');
-await p2.click('#sheet .sheet-item:has-text("Intră într-o listă")');
+await p2.click('#sheet .sheet-item:has-text("Intră cu un cod")');
 await p2.waitForSelector('#dialog:not([hidden])');
 await p2.fill('#dialog input.dlg-input', cod);
 await p2.click('#dialog .dialog-actions button:last-child');
@@ -315,6 +326,172 @@ const pinguriNoi = dupa.pinguri - inainte.pinguri;
 const syncNoi = dupa.sincronizari - inainte.sincronizari;
 verifica(pinguriNoi >= 2, 'se fac verificari dese (' + pinguriNoi + ' in 12 s)');
 verifica(syncNoi === 0, 'niciuna nu a cerut sincronizare completa (' + syncNoi + ')');
+
+console.log('19. Carduri: ecranul gol');
+await ctx.grantPermissions(['camera'], { origin: BAZA });
+await page.evaluate(() => { location.hash = ''; });
+await page.waitForTimeout(400);
+await page.click('#tabCards');
+await page.waitForTimeout(400);
+verifica(await page.isVisible('#screenCards:not(.hidden)'), 'tab-ul Carduri deschide ecranul de carduri');
+verifica(await page.isVisible('#cardsEmpty'), 'mesajul pentru niciun card e vizibil');
+await shot(page, 'carduri-gol');
+
+console.log('20. Card nou prin scanare cu camera (drumul folosit de Firefox: ZXing)');
+await page.click('#fabAddCard');
+await page.waitForSelector('.panou .magazin[data-store="mega"]');
+await page.waitForTimeout(350);
+await shot(page, 'carduri-alege-magazin');
+await page.click('.panou .magazin[data-store="mega"]');
+await page.waitForSelector('.panou-scaner video', { timeout: 5000 });
+await shot(page, 'carduri-scaner');
+let formular = false;
+try {
+  await page.waitForSelector('#cardNumar', { timeout: 20000 });
+  formular = true;
+} catch (e) { /* nu a citit codul */ }
+verifica(formular, 'camera a citit codul de bare si a deschis formularul');
+if (formular) {
+  const numar = await page.inputValue('#cardNumar');
+  const format = await page.inputValue('#cardFormat');
+  verifica(numar === COD_SCANAT, 'numarul scanat e corect (' + numar + ' / asteptat ' + COD_SCANAT + ')');
+  verifica(format === 'EAN_13', 'formatul a fost recunoscut: ' + format);
+  const lista = await page.$eval('#cardLista', (s) => s.options[s.selectedIndex].text);
+  verifica(lista === 'Mega', 'cardul Mega Image s-a legat singur de lista "Mega" (' + lista + ')');
+  await shot(page, 'carduri-formular-scanat');
+  await page.click('#cardSalveaza');
+  await page.waitForSelector('#screenCard:not(.hidden)', { timeout: 5000 });
+  await page.waitForSelector('#cardView svg', { timeout: 5000 });
+  verifica((await page.textContent('#cardView .lc-numar')).replace(/\s/g, '') === COD_SCANAT, 'cardul deschis arata numarul');
+  await shot(page, 'carduri-card-deschis');
+
+  // codul desenat trebuie sa poata fi citit inapoi (asta face scannerul de la casa)
+  const citit = await page.evaluate(async () => {
+    const svg = document.querySelector('#cardView .lc-desen svg');
+    const vb = svg.viewBox.baseVal;
+    const clona = svg.cloneNode(true);
+    clona.setAttribute('width', vb.width * 2);
+    clona.setAttribute('height', vb.height * 2);
+    const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clona));
+    const img = new Image();
+    await new Promise((ok, nu) => { img.onload = ok; img.onerror = nu; img.src = url; });
+    const cv = document.createElement('canvas');
+    cv.width = img.width; cv.height = img.height;
+    const c2 = cv.getContext('2d');
+    c2.fillStyle = '#fff'; c2.fillRect(0, 0, cv.width, cv.height);
+    c2.drawImage(img, 0, 0);
+    if (!window.ZXing) {
+      await new Promise((ok) => { const sc = document.createElement('script'); sc.src = 'js/vendor/zxing.min.js'; sc.onload = ok; document.head.append(sc); });
+    }
+    const Z = window.ZXing;
+    const lum = new Z.HTMLCanvasElementLuminanceSource(cv);
+    const bmp = new Z.BinaryBitmap(new Z.HybridBinarizer(lum));
+    const r = new Z.MultiFormatReader().decode(bmp);
+    return r.getText() + '|' + Z.BarcodeFormat[r.getBarcodeFormat()];
+  }).catch((e) => 'eroare: ' + e.message);
+  verifica(citit === COD_SCANAT + '|EAN_13', 'codul de bare desenat se poate scana inapoi (' + citit + ')');
+}
+
+console.log('21. Card nou introdus manual, alt magazin');
+await page.click('#btnBackCard');
+await page.waitForTimeout(400);
+await page.click('#fabAddCard');
+await page.waitForSelector('.panou .magazin.alt');
+await page.click('.panou .magazin.alt');
+await page.waitForSelector('.btn-scan-manual', { timeout: 5000 });
+await page.click('.btn-scan-manual');
+await page.waitForSelector('#cardNumar');
+await page.fill('#cardNume', 'Sala Fitness');
+await page.fill('#cardNumar', 'FIT-2026-0042');
+await page.waitForTimeout(300);
+verifica((await page.inputValue('#cardFormat')) === 'CODE_128', 'textul cu litere e recunoscut ca Code 128');
+await page.fill('#cardNota', 'intrare pe la receptie');
+await shot(page, 'carduri-formular-manual');
+await page.click('#cardSalveaza');
+await page.waitForSelector('#screenCard:not(.hidden)', { timeout: 5000 });
+verifica(await page.isVisible('.lc-nota'), 'notita apare pe card');
+await page.click('#btnBackCard');
+await page.waitForTimeout(500);
+verifica((await page.locator('#cardsGrid .lcard').count()) === 2, 'grila are 2 carduri');
+verifica((await page.textContent('#cardsCount')).includes('2 carduri'), 'titlul numara cardurile: ' + (await page.textContent('#cardsCount')));
+await shot(page, 'carduri-grila');
+
+console.log('22. Cautare in carduri');
+await page.click('#btnSearchCards');
+await page.fill('#qCards', 'fitness');
+await page.waitForTimeout(300);
+verifica((await page.locator('#cardsGrid .lcard').count()) === 1, 'cautarea "fitness" gaseste un card');
+await page.fill('#qCards', '5941');
+await page.waitForTimeout(300);
+verifica((await page.locator('#cardsGrid .lcard').count()) === 1, 'cautarea dupa numar gaseste cardul Mega');
+await page.click('#btnSearchCards');
+await page.waitForTimeout(300);
+
+console.log('23. Butonul de card din lista Mega');
+await page.click('#tabLists');
+await page.waitForTimeout(300);
+await page.click('.list-card:has-text("Mega")');
+await page.waitForSelector('#screenItems:not(.hidden)');
+verifica(await page.isVisible('#btnCardList'), 'lista Mega are butonul de card');
+await shot(page, 'carduri-buton-in-lista');
+await page.click('#btnCardList');
+await page.waitForSelector('#screenCard:not(.hidden)', { timeout: 3000 });
+verifica((await page.textContent('#cardTitle')) === 'Mega Image', 'butonul deschide cardul Mega Image');
+await page.click('#btnBackCard');
+await page.waitForTimeout(400);
+verifica(await page.isVisible('#screenItems:not(.hidden)'), '"inapoi" din card revine in lista');
+await page.goBack();
+await page.waitForTimeout(400);
+
+console.log('24. Stergere card si anulare');
+await page.click('#tabCards');
+await page.waitForTimeout(300);
+await page.click('#cardsGrid .lcard[aria-label="Sala Fitness"]');
+await page.waitForSelector('#screenCard:not(.hidden)');
+await page.click('#cardManage .gest.danger');
+await page.waitForTimeout(500);
+verifica((await page.locator('#cardsGrid .lcard').count()) === 1, 'cardul a fost sters');
+await page.click('#snackAction');
+await page.waitForTimeout(500);
+verifica((await page.locator('#cardsGrid .lcard').count()) === 2, 'anularea readuce cardul');
+verifica(await page.isVisible('#cardsFrecvente .cerc-card'), 'apar cardurile folosite des (cercurile)');
+await shot(page, 'carduri-folosite-des');
+
+console.log('25. Partajare card cu al doilea utilizator');
+await page.click('#cardsGrid .lcard[aria-label="Mega Image"]');
+await page.waitForSelector('#screenCard:not(.hidden)');
+await page.click('#btnShareCard');
+await page.waitForSelector('#sheet:not([hidden])');
+await page.click('#sheet .sheet-item:has-text("Invită")');
+await page.waitForSelector('#dialog .code-box', { timeout: 5000 });
+const codCard = (await page.textContent('#dialog .code-box')).trim();
+await page.click('#dialog .dialog-actions button:last-child');
+await page.waitForTimeout(2000);
+await p2.evaluate(() => { location.hash = ''; });
+await p2.waitForTimeout(300);
+await p2.click('#btnMenuLists');
+await p2.waitForSelector('#sheet:not([hidden])');
+await p2.click('#sheet .sheet-item:has-text("Intră cu un cod")');
+await p2.waitForSelector('#dialog:not([hidden])');
+await p2.fill('#dialog input.dlg-input', codCard);
+await p2.click('#dialog .dialog-actions button:last-child');
+await p2.waitForSelector('#screenCard:not(.hidden)', { timeout: 8000 }).catch(() => {});
+verifica(await p2.isVisible('#screenCard:not(.hidden)'), 'al doilea utilizator a primit cardul si i s-a deschis');
+verifica((await p2.textContent('#cardTitle')) === 'Mega Image', 'e cardul Mega Image');
+await p2.screenshot({ path: path.join(CAPTURI, '97-utilizator2-card-primit.png') });
+
+console.log('26. Cardul merge si fara internet');
+await ctx.setOffline(true);
+await page.click('#btnBackCard');
+await page.waitForTimeout(300);
+await page.click('#cardsGrid .lcard[aria-label="Sala Fitness"]');
+await page.waitForTimeout(600);
+verifica(await page.isVisible('#cardView svg'), 'fara internet, codul de bare se deseneaza');
+await page.reload({ waitUntil: 'load' }).catch(() => {});
+await page.waitForTimeout(1500);
+verifica(await page.isVisible('#cardView svg'), 'fara internet, dupa reincarcare cardul apare (din memoria telefonului)');
+await shot(page, 'carduri-offline');
+await ctx.setOffline(false);
 
 await browser.close();
 srv.kill();

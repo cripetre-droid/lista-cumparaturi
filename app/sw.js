@@ -2,7 +2,7 @@
    Datele (listele) NU trec pe aici - ele stau in localStorage si se
    sincronizeaza separat. Aici se pastreaza doar fisierele aplicatiei. */
 
-const CACHE = 'lista-cumparaturi-v1.2.0';
+const CACHE = 'lista-cumparaturi-v1.3.0';
 
 const FISIERE = [
   './',
@@ -14,6 +14,13 @@ const FISIERE = [
   './js/store.js',
   './js/sync.js',
   './js/ui.js',
+  './js/cards.js',
+  './js/stores.js',
+  './js/barcode.js',
+  './js/scanner.js',
+  './js/vendor/jsbarcode.min.js',
+  './js/vendor/qrcode.js',
+  './js/vendor/zxing.min.js',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',

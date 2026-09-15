@@ -250,3 +250,108 @@ function clean_text($v, int $max = 200): string
     $v = trim(preg_replace('/\s+/u', ' ', $v) ?? $v);
     return mb_substr($v, 0, $max);
 }
+
+/* =========================================================
+   Carduri de fidelitate
+   ========================================================= */
+
+/**
+ * Tabelele pentru carduri au aparut dupa prima instalare. Ca sa nu fie nevoie
+ * de un pas manual pe server, se creeaza singure la prima cerere care le foloseste.
+ */
+function asigura_schema_carduri(): void
+{
+    static $gata = false;
+    if ($gata) {
+        return;
+    }
+    try {
+        db()->query('SELECT 1 FROM cards LIMIT 1');
+        $gata = true;
+        return;
+    } catch (PDOException $e) {
+        // tabelul lipseste: il cream mai jos
+    }
+
+    $sql = [
+        "CREATE TABLE IF NOT EXISTS cards (
+            id CHAR(32) NOT NULL PRIMARY KEY,
+            owner_id CHAR(32) NOT NULL,
+            store VARCHAR(40) NOT NULL DEFAULT '',
+            name VARCHAR(80) NOT NULL,
+            color VARCHAR(9) NOT NULL DEFAULT '',
+            number VARCHAR(120) NOT NULL DEFAULT '',
+            format VARCHAR(20) NOT NULL DEFAULT 'CODE_128',
+            note VARCHAR(500) NOT NULL DEFAULT '',
+            list_id VARCHAR(32) NOT NULL DEFAULT '',
+            updated_at BIGINT NOT NULL,
+            deleted TINYINT NOT NULL DEFAULT 0,
+            INDEX (owner_id),
+            INDEX (updated_at),
+            CONSTRAINT fk_cards_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS card_members (
+            card_id CHAR(32) NOT NULL,
+            user_id CHAR(32) NOT NULL,
+            joined_at BIGINT NOT NULL,
+            PRIMARY KEY (card_id, user_id),
+            INDEX (user_id),
+            CONSTRAINT fk_cm_card FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
+            CONSTRAINT fk_cm_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+
+        "CREATE TABLE IF NOT EXISTS card_codes (
+            code VARCHAR(12) NOT NULL PRIMARY KEY,
+            card_id CHAR(32) NOT NULL,
+            created_by CHAR(32) NOT NULL,
+            created_at BIGINT NOT NULL,
+            expires_at BIGINT NOT NULL,
+            INDEX (card_id),
+            CONSTRAINT fk_cc_card FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    ];
+    foreach ($sql as $q) {
+        db()->exec($q);
+    }
+    $gata = true;
+}
+
+/** Toate id-urile de carduri la care are acces utilizatorul. */
+function accessible_card_ids(string $userId): array
+{
+    asigura_schema_carduri();
+    $st = db()->prepare(
+        'SELECT id FROM cards WHERE owner_id = ?
+         UNION SELECT card_id FROM card_members WHERE user_id = ?'
+    );
+    $st->execute([$userId, $userId]);
+    return array_column($st->fetchAll(), 'id');
+}
+
+function user_can_access_card(string $userId, string $cardId): bool
+{
+    asigura_schema_carduri();
+    $st = db()->prepare(
+        'SELECT 1 FROM cards c
+         LEFT JOIN card_members m ON m.card_id = c.id AND m.user_id = ?
+         WHERE c.id = ? AND (c.owner_id = ? OR m.user_id IS NOT NULL) LIMIT 1'
+    );
+    $st->execute([$userId, $cardId, $userId]);
+    return (bool) $st->fetchColumn();
+}
+
+/** Cod de invitatie scurt, unic in ambele tabele (liste si carduri). */
+function cod_invitatie_nou(): string
+{
+    $abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    do {
+        $code = '';
+        for ($i = 0; $i < 7; $i++) {
+            $code .= $abc[random_int(0, strlen($abc) - 1)];
+        }
+        $st = db()->prepare('SELECT 1 FROM share_codes WHERE code = ? UNION SELECT 1 FROM card_codes WHERE code = ?');
+        $st->execute([$code, $code]);
+    } while ($st->fetchColumn());
+    return $code;
+}

@@ -6,6 +6,11 @@
 # subdomeniului lista.vireo.ro) si se extrage acolo.
 # In arhiva, caile sunt scrise cu "/" (altfel cPanel extrage aiurea pe Windows-zip).
 
+#   -Instalare   include si install.php + verifica.php (doar la prima instalare).
+#                Fara el, arhiva e de ACTUALIZARE: nu readuce pe server fisierele sterse dupa instalare.
+
+param([switch]$Instalare)
+
 $ErrorActionPreference = 'Stop'
 $radacina = Split-Path -Parent $MyInvocation.MyCommand.Path
 $pachet   = Join-Path $radacina 'pachet'
@@ -35,7 +40,9 @@ Get-ChildItem $app -Recurse -File -Force | ForEach-Object {
 
 # 2. API-ul (in /lista/api/) - fara config.php, care se scrie o singura data pe server
 $api = Join-Path $radacina 'api'
-Get-ChildItem $api -Recurse -File -Force | Where-Object { $_.Name -ne 'config.php' } | ForEach-Object {
+$excluse = @('config.php')
+if (-not $Instalare) { $excluse += @('install.php', 'verifica.php') }
+Get-ChildItem $api -Recurse -File -Force | Where-Object { $excluse -notcontains $_.Name } | ForEach-Object {
   $rel = 'api/' + $_.FullName.Substring($api.Length + 1)
   Adauga-Fisier $_.FullName $rel
 }
@@ -47,3 +54,4 @@ Write-Host ""
 Write-Host "Gata: $zip ($dim KB)" -ForegroundColor Green
 Write-Host "Urca-l in /home/rvir1227/lista/ si extrage-l acolo (Extract din File Manager)."
 Write-Host "ATENTIE: config.php nu e in arhiva - se creeaza o singura data pe server."
+if (-not $Instalare) { Write-Host "Arhiva de ACTUALIZARE: fara install.php si verifica.php." -ForegroundColor Yellow }

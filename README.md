@@ -23,6 +23,8 @@ când revine semnalul.
 | **Partajare** | cod de invitație de 7 caractere; ce bifează unul, vede celălalt |
 | **Offline** | totul e salvat pe telefon; sincronizarea se face automat la revenirea semnalului |
 | **Temă** | deschisă / întunecată / ca în telefon |
+| **Carduri de fidelitate** | tab separat: scanezi codul de pe card cu camera (sau tastezi numărul), ~48 de magazine românești predefinite, cod de bare mare la casă, ecranul nu se stinge, merge fără internet |
+| **Card ↔ listă** | cardul Mega apare ca buton direct în lista „Mega” (legătura se propune singură după nume) |
 | **Alte** | sortare alfabetică, bifează tot, golire, „adaugă mai multe deodată", trimitere ca text pe WhatsApp |
 
 ---
@@ -147,13 +149,44 @@ aceleași liste indiferent de unde intri.
 
 ```bash
 node dev/server-test.mjs          # http://localhost:8787 (API imitat, date în memorie)
-node dev/test-ui.mjs              # test automat: 15 scenarii, capturi în dev/capturi/
+node dev/test-ui.mjs              # test automat: 26 de scenarii, capturi în dev/capturi/
 ```
 
 Serverul de test nu are nevoie de PHP sau MySQL — imită API-ul, ca să poți lucra la interfață.
 Testul automat pornește singur serverul, pe portul lui.
 
 ---
+
+## Carduri de fidelitate
+
+- **Adăugare:** `+` → alegi magazinul → se deschide camera și citește codul de bare (format + număr).
+  Pe Chrome/Android se folosește detectorul nativ `BarcodeDetector`; pe Firefox și iPhone, librăria
+  ZXing (inclusă local, se încarcă doar când deschizi camera). Există și „Introdu numărul manual”:
+  formatul se ghicește din număr (13 cifre cu cifră de control validă → EAN-13, altfel Code 128).
+- **Afișare:** codul se desenează local (JsBarcode pentru coduri liniare, qrcode-generator pentru QR),
+  deci merge fără internet. Atingerea codului îl arată pe tot ecranul, rotit ca să fie cât mai lat.
+  Cât timp e deschis un card, ecranul nu se stinge (Wake Lock). Luminozitatea nu o poate urca o
+  aplicație web.
+- **Folosite des:** se numără pe fiecare telefon în parte (nu se sincronizează).
+- **Partajare:** la fel ca listele — cod de 7 caractere; „Intră cu un cod de invitație” din meniu
+  recunoaște singur dacă e cod de listă sau de card. Dacă un membru „șterge” cardul, doar renunță la el.
+- **Server:** tabelele `cards`, `card_members`, `card_codes` se creează **singure** la prima cerere,
+  deci o instalare existentă nu cere niciun pas manual.
+- **Testat:** `dev/test-ui.mjs` pornește browserul cu o cameră falsă (`dev/cod-video.mjs` generează un
+  video cu un cod EAN-13), scanează, salvează, apoi decodează înapoi codul desenat — exact ce face
+  scannerul de la casă.
+
+Librării incluse în `app/js/vendor/` (toate MIT): JsBarcode 3.12, qrcode-generator 1.5, @zxing/library 0.21.
+
+## Actualizarea serverului
+
+```
+powershell -ExecutionPolicy Bypass -File fa-pachet.ps1              # arhiva de actualizare
+powershell -ExecutionPolicy Bypass -File fa-pachet.ps1 -Instalare   # doar la prima instalare
+```
+
+Arhiva de actualizare **nu** conține `install.php` și `verifica.php`, ca să nu reapară pe server
+după ce le-ai șters. Se extrage peste folderul existent.
 
 ## Cum funcționează sincronizarea
 
@@ -193,6 +226,11 @@ app/
   js/api.js             apelurile către server + mesajele de eroare în română
   js/sync.js            sincronizarea în ambele sensuri
   js/ui.js              panouri, dialoguri, notificări, reordonare prin tragere
+  js/cards.js           cardurile de fidelitate: grilă, card deschis, adăugare, partajare
+  js/stores.js          magazinele predefinite (culori, nume)
+  js/barcode.js         formate, verificare și desenarea codurilor de bare
+  js/scanner.js         camera + BarcodeDetector / ZXing
+  js/vendor/            JsBarcode, qrcode-generator, ZXing
   js/app.js             logica ecranelor
   sw.js                 funcționarea offline
 api/

@@ -158,6 +158,48 @@ console.log('\n=== 7. Partajare intre doua conturi ===');
   ok((membri.date.members || []).length === 2, 'lista are doi membri', JSON.stringify((membri.date.members || []).map((m) => m.email)));
 }
 
+console.log('\n=== 7b. Carduri de fidelitate ===');
+const idCard = uid();
+{
+  const r = await call('sync.php', {
+    token: conturi[1].token,
+    corp: {
+      since: 0,
+      cards: [{ id: idCard, store: 'mega', name: 'Mega Image', color: '', number: '5941234567899', format: 'EAN_13', note: 'probă', list_id: idLista, updated_at: now(), deleted: 0 }],
+    },
+  });
+  ok(r.status === 200 && Array.isArray(r.date.cards), 'serverul stie de carduri (tabelele s-au creat singure)', JSON.stringify(r.date).slice(0, 120));
+  const c = (r.date.cards || []).find((x) => x.id === idCard);
+  ok(c && c.number === '5941234567899' && c.format === 'EAN_13', 'cardul s-a salvat cu numarul si formatul corecte');
+  ok(c && c.list_id === idLista && c.note === 'probă', 'legatura cu lista si notita s-au pastrat');
+
+  const p1 = await call('ping.php', { metoda: 'GET', token: conturi[1].token });
+  ok(p1.status === 200 && p1.date.ultim >= c.updated_at, 'verificarea rapida vede si modificarile de carduri');
+
+  const cod = await call('share.php?a=create', { token: conturi[1].token, corp: { card_id: idCard } });
+  ok(!!(cod.date && cod.date.code), 's-a generat cod de invitatie pentru card', cod.date && cod.date.code);
+  const intrat = await call('share.php?a=join', { token: conturi[2].token, corp: { code: cod.date.code } });
+  ok(intrat.date && intrat.date.kind === 'card', 'acelasi "Intra cu un cod" recunoaste codul de card', JSON.stringify(intrat.date));
+  const vede = await call('sync.php', { token: conturi[2].token, corp: { since: 0 } });
+  ok((vede.date.cards || []).some((x) => x.id === idCard && Number(x.owner) === 0), 'al doilea cont vede cardul partajat');
+  ok((vede.date.card_shared || {})[idCard] === 2, 'cardul apare ca partajat intre 2 persoane');
+
+  const strain = await call('sync.php', {
+    token: conturi[2].token,
+    corp: { since: 0, cards: [{ id: idCard, store: 'mega', name: 'MODIFICAT', color: '', number: '1', format: 'CODE_128', note: '', list_id: '', updated_at: now(), deleted: 1 }] },
+  });
+  const inca = await call('sync.php', { token: conturi[1].token, corp: { since: 0 } });
+  const dupa = (inca.date.cards || []).find((x) => x.id === idCard);
+  ok(dupa && !Number(dupa.deleted), 'cand un membru "sterge" cardul, doar renunta la el - la proprietar ramane');
+  ok(!(strain.date.cards || []).some((x) => x.id === idCard), 'membrul care a renuntat nu-l mai vede');
+
+  const sters = await call('sync.php', {
+    token: conturi[1].token,
+    corp: { since: 0, cards: [{ ...c, deleted: 1, updated_at: now() }] },
+  });
+  ok((sters.date.cards || []).some((x) => x.id === idCard && Number(x.deleted) === 1), 'cardul de proba a fost sters');
+}
+
 console.log('\n=== 8. Curatenie (sterg datele de proba) ===');
 {
   await call('share.php?a=leave', { token: conturi[2].token, corp: { list_id: idLista } });

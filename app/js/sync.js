@@ -9,6 +9,8 @@ import { state, save, applyRemote } from './store.js';
 
 const CAMPURI_LISTA = ['id', 'name', 'color', 'position', 'updated_at', 'deleted'];
 const CAMPURI_ITEM = ['id', 'list_id', 'name', 'qty', 'unit', 'note', 'done', 'position', 'updated_at', 'deleted'];
+const CAMPURI_CARD = ['id', 'store', 'name', 'color', 'number', 'format', 'note', 'list_id', 'updated_at', 'deleted'];
+const TEXT_CARD = new Set(['store', 'name', 'color', 'number', 'format', 'note', 'list_id']);
 
 let inProgress = null;
 let pendingAgain = false;
@@ -31,20 +33,24 @@ function emit(st, extra) {
 
 function pick(obj, campuri) {
   const o = {};
-  for (const c of campuri) o[c] = obj[c] === undefined ? (c === 'name' ? '' : 0) : obj[c];
+  for (const c of campuri) {
+    const text = c === 'name' || (campuri === CAMPURI_CARD && TEXT_CARD.has(c));
+    o[c] = obj[c] === undefined ? (text ? '' : 0) : obj[c];
+  }
   return o;
 }
 
 function dirtyPayload() {
-  const lists = [], items = [];
+  const lists = [], items = [], cards = [];
   for (const l of Object.values(state.lists)) if (l.dirty) lists.push(pick(l, CAMPURI_LISTA));
   for (const i of Object.values(state.items)) if (i.dirty) items.push(pick(i, CAMPURI_ITEM));
-  return { lists, items };
+  for (const c of Object.values(state.cards || {})) if (c.dirty) cards.push(pick(c, CAMPURI_CARD));
+  return { lists, items, cards };
 }
 
 export function hasPending() {
-  const { lists, items } = dirtyPayload();
-  return lists.length + items.length > 0;
+  const { lists, items, cards } = dirtyPayload();
+  return lists.length + items.length + cards.length > 0;
 }
 
 /**
@@ -69,17 +75,19 @@ export async function sync({ full = false, silent = false } = {}) {
     const trimise = new Map();
     for (const l of payload.lists) trimise.set('l' + l.id, l.updated_at);
     for (const i of payload.items) trimise.set('i' + i.id, i.updated_at);
+    for (const c of payload.cards) trimise.set('c' + c.id, c.updated_at);
 
     // daca n-am mai sincronizat de peste 20 de zile, luam totul de la zero
     const prea_vechi = state.lastSync && (Date.now() - state.lastSync > 20 * 86400000);
     const since = (full || prea_vechi) ? 0 : (state.lastSync || 0);
 
-    const res = await api.sync({ since, lists: payload.lists, items: payload.items });
+    const res = await api.sync({ since, lists: payload.lists, items: payload.items, cards: payload.cards });
 
     // cate dintre noutati vin de la ceilalti, nu sunt ecoul a ce tocmai am trimis
     let dinAfara = 0;
     for (const l of res.lists || []) if (!trimise.has('l' + l.id)) dinAfara++;
     for (const it of res.items || []) if (!trimise.has('i' + it.id)) dinAfara++;
+    for (const c of res.cards || []) if (!trimise.has('c' + c.id)) dinAfara++;
 
     applyRemote(() => {
       // 1. curatam marcajul "de trimis" pentru ce nu s-a mai schimbat intre timp
@@ -88,6 +96,9 @@ export async function sync({ full = false, silent = false } = {}) {
       }
       for (const i of Object.values(state.items)) {
         if (i.dirty && trimise.get('i' + i.id) === i.updated_at) delete i.dirty;
+      }
+      for (const c of Object.values(state.cards)) {
+        if (c.dirty && trimise.get('c' + c.id) === c.updated_at) delete c.dirty;
       }
 
       // 2. aplicam ce vine de la server (nu peste modificarile locale netrimise)
@@ -101,6 +112,14 @@ export async function sync({ full = false, silent = false } = {}) {
         if (cur && cur.dirty) continue;
         state.items[it.id] = { ...it };
       }
+      // serverul vechi (inainte de carduri) nu trimite "cards": atunci nu atingem nimic
+      if (Array.isArray(res.cards)) {
+        for (const c of res.cards) {
+          const cur = state.cards[c.id];
+          if (cur && cur.dirty) continue;
+          state.cards[c.id] = { ...c };
+        }
+      }
 
       // 3. la sincronizare completa scoatem listele la care nu mai avem acces
       if (res.full && Array.isArray(res.all_list_ids)) {
@@ -113,8 +132,16 @@ export async function sync({ full = false, silent = false } = {}) {
           if (!ok.has(it.list_id) && !it.dirty) delete state.items[id];
         }
       }
+      if (res.full && Array.isArray(res.all_card_ids)) {
+        const okC = new Set(res.all_card_ids);
+        for (const id of Object.keys(state.cards)) {
+          if (!okC.has(id) && !state.cards[id].dirty) delete state.cards[id];
+        }
+      }
 
       if (res.shared) state.shared = res.shared;
+      if (res.card_shared && !Array.isArray(res.card_shared)) state.cardShared = res.card_shared;
+      else if (Array.isArray(res.card_shared)) state.cardShared = {};
       state.lastSync = res.now;
 
       // curatam local ce e sters si sincronizat (nu mai avem nevoie de urma lui)
@@ -124,6 +151,9 @@ export async function sync({ full = false, silent = false } = {}) {
       }
       for (const [id, o] of Object.entries(state.lists)) {
         if (o.deleted && !o.dirty && o.updated_at < cut) delete state.lists[id];
+      }
+      for (const [id, o] of Object.entries(state.cards)) {
+        if (o.deleted && !o.dirty && o.updated_at < cut) delete state.cards[id];
       }
     });
 

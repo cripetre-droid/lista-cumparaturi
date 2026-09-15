@@ -15,6 +15,10 @@ export const state = {
   lastSync: 0,      // ora serverului la ultima sincronizare
   theme: 'auto',
   history: [],      // sugestii locale: {name, unit, uses, last_used}
+  cards: {},        // id -> {id,store,name,color,number,format,note,list_id,updated_at,deleted,owner,dirty}
+  cardShared: {},   // card_id -> cate persoane
+  cardUses: {},     // card_id -> {n, last}  (doar pe telefonul asta, nu se sincronizeaza)
+  cardSort: 'alfa', // 'alfa' | 'des' | 'recent'
 };
 
 let saveTimer = null;
@@ -30,6 +34,10 @@ export function load() {
   if (!state.items) state.items = {};
   if (!state.shared) state.shared = {};
   if (!state.history) state.history = [];
+  if (!state.cards) state.cards = {};
+  if (!state.cardShared) state.cardShared = {};
+  if (!state.cardUses) state.cardUses = {};
+  if (!state.cardSort) state.cardSort = 'alfa';
 }
 
 export function save(now = false) {
@@ -50,7 +58,7 @@ export function resetAll() {
   localStorage.removeItem(KEY);
   Object.assign(state, {
     token: null, user: null, lists: {}, items: {}, shared: {},
-    lastSync: 0, history: [],
+    lastSync: 0, history: [], cards: {}, cardShared: {}, cardUses: {},
   });
   undoStack.length = 0;
   redoStack.length = 0;
@@ -83,14 +91,18 @@ const undoStack = [];
 const redoStack = [];
 let current = null;
 
+function colectie(kind) {
+  return kind === 'list' ? state.lists : kind === 'card' ? state.cards : state.items;
+}
+
 function snapshot(kind, id) {
-  const src = kind === 'list' ? state.lists : state.items;
+  const src = colectie(kind);
   const o = src[id];
   return { kind, id, data: o ? JSON.parse(JSON.stringify(o)) : null };
 }
 
 function restore(snap) {
-  const dst = snap.kind === 'list' ? state.lists : state.items;
+  const dst = colectie(snap.kind);
   if (snap.data === null) {
     // entitatea nu exista inainte de modificare: nu o stergem de tot, ci o marcam
     // ca stearsa, ca stergerea sa ajunga si la celelalte telefoane
@@ -144,6 +156,16 @@ export function mutate(label, fn) {
       state.items[o.id] = o;
       return o;
     },
+    card(id) {
+      const o = state.cards[id];
+      return touch('card', id, o);
+    },
+    newCard(o) {
+      touch('card', o.id, null);
+      o.updated_at = now(); o.dirty = 1;
+      state.cards[o.id] = o;
+      return o;
+    },
   };
 
   const result = fn(m);
@@ -174,7 +196,7 @@ export function undo() {
   if (!tx) return null;
   for (const s of tx.before) {
     restore(s);
-    const dst = s.kind === 'list' ? state.lists : state.items;
+    const dst = colectie(s.kind);
     if (dst[s.id]) { dst[s.id].updated_at = now(); dst[s.id].dirty = 1; }
   }
   redoStack.push(tx);
@@ -187,7 +209,7 @@ export function redo() {
   if (!tx) return null;
   for (const s of tx.after) {
     restore(s);
-    const dst = s.kind === 'list' ? state.lists : state.items;
+    const dst = colectie(s.kind);
     if (dst[s.id]) { dst[s.id].updated_at = now(); dst[s.id].dirty = 1; }
   }
   undoStack.push(tx);
@@ -238,6 +260,29 @@ export function nextListPosition() {
     if (!l.deleted && l.position > max) max = l.position;
   }
   return max + 10;
+}
+
+/* ---------------- carduri de fidelitate ---------------- */
+
+export function visibleCards() {
+  return Object.values(state.cards).filter((c) => !c.deleted && c.name !== undefined);
+}
+
+/** Cardurile legate de o lista (cele mai folosite primele). */
+export function cardsForList(listId) {
+  if (!listId) return [];
+  return visibleCards()
+    .filter((c) => c.list_id === listId)
+    .sort((a, b) => ((state.cardUses[b.id] || {}).n || 0) - ((state.cardUses[a.id] || {}).n || 0));
+}
+
+/** Tine minte ca un card a fost aratat (pentru "folosite des"). Nu intra in undo. */
+export function noteCardUse(id) {
+  const u = state.cardUses[id] || { n: 0, last: 0 };
+  u.n += 1;
+  u.last = now();
+  state.cardUses[id] = u;
+  save();
 }
 
 /* ---------------- istoric local pentru sugestii ---------------- */

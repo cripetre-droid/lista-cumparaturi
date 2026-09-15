@@ -69,7 +69,18 @@ function boot() {
   }
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    // la o versiune noua, pagina se reincarca singura o data, ca sa nu ramana pe codul vechi
+    const aveaVersiune = !!navigator.serviceWorker.controller;
+    let reincarcat = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!aveaVersiune || reincarcat) return;
+      reincarcat = true;
+      save(true);
+      location.reload();
+    });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then((r) => r.update())
+      .catch(() => {});
   }
 }
 

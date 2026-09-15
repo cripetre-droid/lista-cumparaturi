@@ -14,6 +14,17 @@ const AICI = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.join(AICI, '..', 'app');
 const PORT = Number(process.env.PORT || 8787);
 
+// cache-ul fisierelor JS/CSS, ca in app/.htaccess (fara regula no-cache: 7 zile, ca inainte)
+const CACHE_JS = (() => {
+  try {
+    const h = fs.readFileSync(path.join(APP, '.htaccess'), 'utf8');
+    return /FilesMatch "\\\.\(js\|css\)\$"[\s\S]*?Cache-Control "no-cache"/.test(h) ? 'no-cache' : 'public, max-age=604800';
+  } catch (e) { return 'no-cache'; }
+})();
+
+// "publicarea" unei versiuni noi, pentru testul de actualizare
+let versiuneTest = '';
+
 const POLITICA = (() => {
   try {
     const h = fs.readFileSync(path.join(APP, '.htaccess'), 'utf8');
@@ -267,6 +278,11 @@ const server = http.createServer(async (req, res) => {
     return json(res, { error: 'actiune_necunoscuta' }, 404);
   }
 
+  if (url.pathname === '/__versiune') {
+    versiuneTest = url.searchParams.get('v') || '';
+    return json(res, { versiune: versiuneTest });
+  }
+
   if (url.pathname === '/__stat') {
     return json(res, { pinguri: db.pinguri || 0, sincronizari: db.sincronizari || 0 });
   }
@@ -278,9 +294,20 @@ const server = http.createServer(async (req, res) => {
 
   fs.readFile(fisier, (err, data) => {
     if (err) { res.writeHead(404); return res.end('lipseste: ' + p); }
+    const ext = path.extname(fisier);
+    const nume = path.basename(fisier);
+    if (versiuneTest && nume === 'config.js') {
+      data = Buffer.from(data.toString('utf8').replace(/APP_VERSION = '[^']*'/, "APP_VERSION = '" + versiuneTest + "'"));
+    }
+    if (versiuneTest && nume === 'sw.js') {
+      data = Buffer.from(data.toString('utf8').replace(/lista-cumparaturi-v[\d.]+/, 'lista-cumparaturi-v' + versiuneTest));
+    }
+    const cacheControl = ['index.html', 'sw.js', 'manifest.webmanifest'].includes(nume) ? 'no-cache, must-revalidate'
+      : (ext === '.js' || ext === '.css') ? CACHE_JS : 'no-cache';
     res.writeHead(200, {
       'Content-Type': TIPURI[path.extname(fisier)] || 'application/octet-stream',
-      'Cache-Control': 'no-store',
+      'Cache-Control': cacheControl,
+      'Last-Modified': new Date(Date.now() - 3600000).toUTCString(),
       // acelasi antet ca pe server (din app/.htaccess), ca testele sa prinda o camera blocata
       ...(POLITICA ? { 'Permissions-Policy': POLITICA } : {}),
     });

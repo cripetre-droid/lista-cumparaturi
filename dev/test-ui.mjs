@@ -493,6 +493,25 @@ verifica(await page.isVisible('#cardView svg'), 'fara internet, dupa reincarcare
 await shot(page, 'carduri-offline');
 await ctx.setOffline(false);
 
+console.log('27. O versiune noua ajunge pe telefon (fara sa ramana blocat pe fisierele vechi)');
+await page.goto(BAZA, { waitUntil: 'networkidle' });
+await page.evaluate(() => navigator.serviceWorker.ready);
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(800);
+verifica(await page.evaluate(() => !!navigator.serviceWorker.controller), 'service worker-ul controleaza pagina');
+const versInainte = await page.evaluate(() => import('./js/config.js').then((m) => m.APP_VERSION));
+await fetch(BAZA + '/__versiune?v=9.9.9');      // se publica o versiune noua pe server
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(3500);                // sw nou: instalare + preluare + reincarcare automata
+let versDupa = await page.evaluate(() => import('./js/config.js').then((m) => m.APP_VERSION)).catch(() => '?');
+if (versDupa !== '9.9.9') {
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(1500);
+  versDupa = await page.evaluate(() => import('./js/config.js').then((m) => m.APP_VERSION)).catch(() => '?');
+}
+verifica(versDupa === '9.9.9', 'telefonul a trecut de la ' + versInainte + ' la versiunea publicata (' + versDupa + ')');
+await fetch(BAZA + '/__versiune?v=');
+
 await browser.close();
 srv.kill();
 

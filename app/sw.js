@@ -2,7 +2,7 @@
    Datele (listele) NU trec pe aici - ele stau in localStorage si se
    sincronizeaza separat. Aici se pastreaza doar fisierele aplicatiei. */
 
-const CACHE = 'lista-cumparaturi-v1.3.0';
+const CACHE = 'lista-cumparaturi-v1.3.1';
 
 const FISIERE = [
   './',
@@ -31,8 +31,11 @@ const FISIERE = [
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    // fiecare fisier separat: unul lipsa nu trebuie sa strice instalarea
-    await Promise.all(FISIERE.map((f) => c.add(f).catch((err) => console.warn('lipsa din cache:', f, err))));
+    // fiecare fisier separat: unul lipsa nu trebuie sa strice instalarea.
+    // cache: 'reload' = direct de pe server, NU din cache-ul HTTP al telefonului
+    // (altfel o versiune noua se poate umple cu fisierele vechi)
+    await Promise.all(FISIERE.map((f) => c.add(new Request(f, { cache: 'reload' }))
+      .catch((err) => console.warn('lipsa din cache:', f, err))));
     self.skipWaiting();
   })());
 });
@@ -71,7 +74,7 @@ self.addEventListener('fetch', (e) => {
     const hit = await cache.match(req, { ignoreSearch: false });
     if (hit) {
       // improspatam in fundal
-      fetch(req).then((net) => { if (net.ok) cache.put(req, net.clone()); }).catch(() => {});
+      fetch(req, { cache: 'no-cache' }).then((net) => { if (net.ok) cache.put(req, net.clone()); }).catch(() => {});
       return hit;
     }
     try {

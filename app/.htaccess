@@ -14,13 +14,17 @@ Options -Indexes
     <FilesMatch "^(index\.html|sw\.js|manifest\.webmanifest)$">
         Header set Cache-Control "no-cache, must-revalidate"
     </FilesMatch>
+
+    # JS si CSS: se verifica la fiecare incarcare (raspuns 304 daca nu s-au schimbat).
+    # Functionarea offline o asigura service worker-ul, nu cache-ul browserului.
+    <FilesMatch "\.(js|css)$">
+        Header set Cache-Control "no-cache"
+        Header unset Expires
+    </FilesMatch>
 </IfModule>
 
 <IfModule mod_expires.c>
     ExpiresActive On
-    ExpiresByType text/css "access plus 7 days"
-    ExpiresByType text/javascript "access plus 7 days"
-    ExpiresByType application/javascript "access plus 7 days"
     ExpiresByType image/png "access plus 30 days"
     ExpiresByType image/svg+xml "access plus 30 days"
 </IfModule>

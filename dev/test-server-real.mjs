@@ -115,7 +115,8 @@ const idProdus2 = uid();
   });
   ok(r.status === 200 && Array.isArray(r.date.lists), 'sincronizarea a mers', JSON.stringify(r.date).slice(0, 100));
   ok((r.date.lists || []).some((l) => l.id === idLista), 'lista a fost salvata pe server');
-  ok((r.date.items || []).length === 2, 'ambele produse au fost salvate');
+  const aleListei = (r.date.items || []).filter((i) => i.list_id === idLista).length;
+  ok(aleListei === 2, 'ambele produse au fost salvate', aleListei + ' in lista de proba, ' + (r.date.items || []).length + ' in total in cont');
   const paine = (r.date.items || []).find((i) => i.id === idProdus2);
   ok(paine && paine.name === 'Pâine de secară', 'diacriticele se pastreaza corect', paine && paine.name);
   ok(typeof r.date.now === 'number' && Math.abs(r.date.now - Date.now()) < 5 * 60000,

@@ -14,6 +14,14 @@ const AICI = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.join(AICI, '..', 'app');
 const PORT = Number(process.env.PORT || 8787);
 
+const POLITICA = (() => {
+  try {
+    const h = fs.readFileSync(path.join(APP, '.htaccess'), 'utf8');
+    const m = h.match(/Permissions-Policy\s+"([^"]+)"/);
+    return m ? m[1] : '';
+  } catch (e) { return ''; }
+})();
+
 const db = {
   users: [], tokens: new Map(), lists: new Map(), items: new Map(), members: [], history: new Map(), codes: new Map(),
   cards: new Map(), cardMembers: [], cardCodes: new Map(),
@@ -270,7 +278,12 @@ const server = http.createServer(async (req, res) => {
 
   fs.readFile(fisier, (err, data) => {
     if (err) { res.writeHead(404); return res.end('lipseste: ' + p); }
-    res.writeHead(200, { 'Content-Type': TIPURI[path.extname(fisier)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
+    res.writeHead(200, {
+      'Content-Type': TIPURI[path.extname(fisier)] || 'application/octet-stream',
+      'Cache-Control': 'no-store',
+      // acelasi antet ca pe server (din app/.htaccess), ca testele sa prinda o camera blocata
+      ...(POLITICA ? { 'Permissions-Policy': POLITICA } : {}),
+    });
     res.end(data);
   });
 });

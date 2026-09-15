@@ -512,6 +512,64 @@ if (versDupa !== '9.9.9') {
 verifica(versDupa === '9.9.9', 'telefonul a trecut de la ' + versInainte + ' la versiunea publicata (' + versDupa + ')');
 await fetch(BAZA + '/__versiune?v=');
 
+console.log('28. Leg un card din meniul listei');
+await page.goto(BAZA, { waitUntil: 'networkidle' });
+await page.waitForTimeout(800);
+await page.click('.list-card:has-text("Farmacie")');
+await page.waitForSelector('#screenItems:not(.hidden)');
+verifica(!(await page.isVisible('#btnCardList')), 'lista Farmacie nu are inca butonul de card');
+await page.click('#btnMenuItems');
+await page.waitForSelector('#sheet:not([hidden])');
+verifica(await page.isVisible('#sheet .sheet-item:has-text("Leagă un card de fidelitate")'), 'meniul listei are optiunea de legare');
+await page.click('#sheet .sheet-item:has-text("Leagă un card de fidelitate")');
+await page.waitForTimeout(200);
+await page.waitForSelector('#sheet .sheet-item:has-text("Sala Fitness")');
+await shot(page, 'leaga-card-din-lista');
+await page.click('#sheet .sheet-item:has-text("Sala Fitness")');
+await page.waitForTimeout(500);
+verifica(await page.isVisible('#btnCardList'), 'dupa legare, lista Farmacie are butonul de card');
+await page.click('#btnCardList');
+await page.waitForSelector('#screenCard:not(.hidden)', { timeout: 3000 });
+verifica((await page.textContent('#cardTitle')) === 'Sala Fitness', 'butonul deschide cardul legat');
+await page.click('#btnBackCard');
+await page.waitForTimeout(400);
+
+// al doilea card, legat de lista altei liste: se muta aici
+await page.click('#btnMenuItems');
+await page.click('#sheet .sheet-item:has-text("Carduri de fidelitate (1 legat)")');
+await page.waitForTimeout(200);
+verifica(await page.isVisible('#sheet .sheet-item:has-text("Mega Image  (acum la „Mega”)")'), 'arata ca Mega Image e legat de alta lista');
+await page.click('#sheet .sheet-item:has-text("Mega Image")');
+await page.waitForTimeout(500);
+await page.click('#btnCardList');
+await page.waitForSelector('#sheet:not([hidden])');
+verifica((await page.locator('#sheet .sheet-item').count()) === 2, 'cu doua carduri legate, butonul intreaba pe care il arati');
+await page.keyboard.press('Escape');
+await page.waitForTimeout(200);
+
+// scot legatura si anulez
+await page.click('#btnMenuItems');
+await page.click('#sheet .sheet-item:has-text("Carduri de fidelitate (2 legate)")');
+await page.waitForTimeout(200);
+await page.click('#sheet .sheet-item:has-text("Sala Fitness  ✓")');
+await page.waitForTimeout(500);
+await page.click('#snackAction');
+await page.waitForTimeout(500);
+const legate = await page.evaluate(() => {
+  const s = JSON.parse(localStorage.getItem('lc.state.v1'));
+  const f = Object.values(s.lists).find((l) => l.name === 'Farmacie' && !l.deleted);
+  return Object.values(s.cards).filter((c) => !c.deleted && c.list_id === f.id).map((c) => c.name).sort().join(', ');
+});
+verifica(legate === 'Mega Image, Sala Fitness', 'anularea readuce legatura (' + legate + ')');
+
+// din meniul de pe ecranul "Listele mele"
+await page.click('#btnBack');
+await page.waitForTimeout(400);
+await page.click('.list-card:has-text("Bebe Tei") .row-btn:not(.drag-handle)');
+await page.waitForSelector('#sheet:not([hidden])');
+verifica(await page.isVisible('#sheet .sheet-item:has-text("Leagă un card de fidelitate")'), 'optiunea exista si in meniul de pe ecranul cu liste');
+await page.keyboard.press('Escape');
+
 await browser.close();
 srv.kill();
 

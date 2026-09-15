@@ -8,7 +8,7 @@ import {
   state, load, save, resetAll, uid, now, norm, mutate,
   canUndo, canRedo, undo, redo, undoLabel, clearUndo,
   visibleLists, listItems, listStats, nextPosition, nextListPosition,
-  rememberProduct, localSuggestions, cardsForList,
+  rememberProduct, localSuggestions, cardsForList, visibleCards,
 } from './store.js';
 import { sync, syncSoon, startAuto, onSync, hasPending, noteInteraction } from './sync.js';
 import {
@@ -524,6 +524,7 @@ function meniuLista(id) {
     { icon: 'edit', text: 'Redenumește / schimbă culoarea', run: () => redenumesteLista(id) },
     { icon: 'share', text: 'Partajează lista', run: () => meniuPartajare(id) },
     { icon: 'copy', text: 'Copiază lista într-una nouă', run: () => copiazaLista(id) },
+    { icon: 'card', text: textLegaCard(id), run: () => legaCardDeLista(id) },
     '-',
     st.done ? { icon: 'broom', text: 'Șterge produsele din coș (' + st.done + ')', run: () => stergeBifate(id) } : null,
     { icon: 'trash', text: 'Șterge lista', danger: true, run: () => stergeLista(id) },
@@ -590,6 +591,62 @@ function copiazaLista(id) {
   syncSoon();
   randeaza();
   aratUndo('Am copiat lista');
+}
+
+
+/* =========================================================
+   CARDURI DE FIDELITATE LEGATE DE O LISTA
+   ========================================================= */
+
+function textLegaCard(listId) {
+  const n = cardsForList(listId).length;
+  if (!n) return 'Leagă un card de fidelitate';
+  return 'Carduri de fidelitate (' + n + ' legat' + (n === 1 ? '' : 'e') + ')';
+}
+
+/** Alegi ce carduri apar in lista. Atingerea unui card il leaga sau il scoate. */
+function legaCardDeLista(listId) {
+  const l = state.lists[listId];
+  if (!l) return;
+  const carduri = visibleCards().sort((a, b) => {
+    const aici = (c) => (c.list_id === listId ? 0 : 1);
+    return aici(a) - aici(b) || a.name.localeCompare(b.name, 'ro');
+  });
+
+  const actiuni = carduri.map((c) => {
+    const aici = c.list_id === listId;
+    const altaLista = !aici && c.list_id && state.lists[c.list_id] && !state.lists[c.list_id].deleted
+      ? state.lists[c.list_id].name : '';
+    return {
+      icon: 'card',
+      on: aici,
+      text: aici ? c.name + '  ✓ (atinge ca să-l scoți)'
+        : altaLista ? c.name + '  (acum la „' + altaLista + '”)'
+        : c.name,
+      run: () => {
+        mutate(aici ? 'Am scos cardul din listă' : 'Am legat cardul de listă', (m) => {
+          m.card(c.id).list_id = aici ? '' : listId;
+        });
+        syncSoon();
+        randeaza();
+        aratUndo(aici
+          ? '„' + c.name + '” nu mai apare la „' + l.name + '”'
+          : '„' + c.name + '” apare acum la „' + l.name + '”');
+      },
+    };
+  });
+
+  if (actiuni.length) actiuni.push('-');
+  actiuni.push({
+    icon: 'camera',
+    text: 'Adaugă un card nou pentru această listă',
+    run: () => cardNou(listId),
+  });
+
+  sheet('Carduri pentru „' + l.name + '”', actiuni,
+    carduri.length
+      ? 'Cardurile bifate apar ca buton în bara listei. Un card poate fi legat de o singură listă.'
+      : 'Nu ai încă niciun card de fidelitate salvat.');
 }
 
 /* =========================================================
@@ -800,6 +857,7 @@ function meniuArticole() {
     { icon: 'checkAll', text: 'Pune tot în coș', run: () => bifeazaTot(1) },
     st.done ? { icon: 'uncheck', text: 'Scoate tot din coș', run: () => bifeazaTot(0) } : null,
     { icon: 'edit', text: 'Adaugă mai multe deodată', run: () => adaugaMaiMulte() },
+    { icon: 'card', text: textLegaCard(ui.listId), run: () => legaCardDeLista(ui.listId) },
     '-',
     st.done ? { icon: 'broom', text: 'Șterge produsele din coș (' + st.done + ')', run: () => stergeBifate(ui.listId) } : null,
     st.total ? { icon: 'trash', text: 'Golește lista', danger: true, run: () => goleste() } : null,
@@ -1324,7 +1382,7 @@ function legaEvenimente() {
   $('#tabCards').addEventListener('click', () => mergiLaTab('cards'));
 
   // carduri
-  $('#fabAddCard').addEventListener('click', cardNou);
+  $('#fabAddCard').addEventListener('click', () => cardNou());
   $('#btnMenuCards').addEventListener('click', meniuGeneral);
   $('#btnSortCards').addEventListener('click', meniuSortare);
   $('#btnSearchCards').addEventListener('click', () => comutaCautare('cards'));

@@ -38,4 +38,4 @@ export function setApiBase(url) {
   else localStorage.removeItem('lc.api');
 }
 
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.4.1';

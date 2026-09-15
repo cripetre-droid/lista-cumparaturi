@@ -348,10 +348,12 @@ export function panouEsteDeschis() {
    ADAUGAREA UNUI CARD
    ========================================================= */
 
-export function cardNou() {
+/** Card nou. Daca pornim dintr-o lista, cardul se leaga direct de ea. */
+export function cardNou(listaImplicita = '') {
+  if (typeof listaImplicita !== 'string') listaImplicita = '';
   alegeMagazin((m) => {
-    if (areCamera()) scaneaza({ magazinAles: m });
-    else formularCard({ magazinAles: m });
+    if (areCamera()) scaneaza({ magazinAles: m, listaImplicita });
+    else formularCard({ magazinAles: m, listaImplicita });
   });
 }
 
@@ -390,7 +392,7 @@ function alegeMagazin(laAlegere) {
   }, { titlu: 'Alege magazinul' });
 }
 
-function scaneaza({ magazinAles, id, dateFormular }) {
+function scaneaza({ magazinAles, id, dateFormular, listaImplicita }) {
   deschidePanou((p) => {
     p.classList.add('panou-scaner');
     const video = el('video', { class: 'scan-video', playsinline: '', muted: '', autoplay: '' });
@@ -408,7 +410,7 @@ function scaneaza({ magazinAles, id, dateFormular }) {
         eroare,
         el('button', {
           class: 'btn-scan-manual', type: 'button', text: 'Introdu numărul manual',
-          onclick: () => formularCard({ magazinAles, id, _date: dateFormular }),
+          onclick: () => formularCard({ magazinAles, id, _date: dateFormular, listaImplicita }),
         })),
     );
 
@@ -416,7 +418,7 @@ function scaneaza({ magazinAles, id, dateFormular }) {
     laInchidere.push(() => { if (control) control.opreste(); });
 
     pornesteScanarea(video, {
-      laGasire: (r) => formularCard({ magazinAles, id, scanat: r, _date: dateFormular }),
+      laGasire: (r) => formularCard({ magazinAles, id, scanat: r, _date: dateFormular, listaImplicita }),
       laEroare: (m) => {
         eroare.textContent = m;
         eroare.hidden = false;
@@ -441,7 +443,7 @@ function potrivireLista(m) {
   return lista ? lista.id : '';
 }
 
-function formularCard({ id, magazinAles, scanat, _date }) {
+function formularCard({ id, magazinAles, scanat, _date, listaImplicita }) {
   const existent = id ? state.cards[id] : null;
   const m = existent ? (existent.store ? magazin(existent.store) : null) : magazinAles;
 
@@ -456,7 +458,7 @@ function formularCard({ id, magazinAles, scanat, _date }) {
       number: scanat ? scanat.numar : '',
       format: scanat ? scanat.format : 'CODE_128',
       note: '',
-      list_id: potrivireLista(m),
+      list_id: listaImplicita || potrivireLista(m),
     };
   if (scanat && (existent || _date)) { date.number = scanat.numar; date.format = scanat.format; }
   let formatAlesDeMana = !!existent || !!scanat || !!(_date && _date.format);

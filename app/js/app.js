@@ -32,6 +32,7 @@ const ui = {
   listId: null,
   qLists: '',
   qItems: '',
+  qCompozitor: '',   // ce scrii in bara de adaugare filtreaza si lista
   qCards: '',
   cardId: null,
   unit: '',
@@ -235,6 +236,8 @@ function inapoiSau(hashParinte) {
 
 function deschideLista(id) {
   ui.qItems = '';
+  ui.qCompozitor = '';
+  $('#newItem').value = '';
   $('#qItems').value = '';
   $('#searchbarItems').hidden = true;
   mergiLa('#/l/' + id);
@@ -384,6 +387,14 @@ function randeazaListe() {
 
 /* ---------------- ecranul cu articole ---------------- */
 
+/** Textul din bara de adaugare, folosit ca si cautare in lista (de la 2 litere). */
+function cautareaDinBara() {
+  const brut = (ui.qCompozitor || '').trim();
+  if (!brut) return '';
+  const nume = parseazaText(brut).name || brut;
+  return norm(nume).length >= 2 ? nume : '';
+}
+
 function randeazaArticole() {
   const lista = state.lists[ui.listId];
   if (!lista || lista.deleted) { ui.screen = 'lists'; location.hash = ''; randeazaListe(); return; }
@@ -393,7 +404,9 @@ function randeazaArticole() {
   const culoare = CULORI[lista.color % CULORI.length] || CULORI[0];
   document.documentElement.style.setProperty('--list-color', culoare);
 
-  const q = ui.qItems.trim();
+  const qBara = cautareaDinBara();
+  const dinBara = !ui.qItems.trim() && !!qBara;
+  const q = ui.qItems.trim() || qBara;
   const nq = norm(q);
   const toate = listItems(ui.listId);
   const articole = q ? toate.filter((i) => norm(i.name).includes(nq)) : toate;
@@ -403,7 +416,11 @@ function randeazaArticole() {
 
   const stats = $('#itemsStats');
   stats.innerHTML = '';
-  if (q) {
+  if (q && dinBara) {
+    stats.append(articole.length
+      ? el('span', { html: '<b>' + articole.length + '</b> ' + (articole.length === 1 ? 'produs' : 'produse') + ' în listă pentru „' + escapeHtml(q) + '”' })
+      : el('span', { html: '„' + escapeHtml(q) + '” nu e în listă — apasă <b>+</b> ca să-l adaugi' }));
+  } else if (q) {
     stats.append(el('span', { html: '<b>' + articole.length + '</b> rezultate pentru „' + escapeHtml(q) + '”' }));
   } else if (st.total) {
     stats.append(el('span', { html: '<b>' + st.left + '</b> de cumpărat' }));
@@ -423,7 +440,7 @@ function randeazaArticole() {
   }
 
   $('#itemsEmpty').hidden = toate.length > 0;
-  if (q && !articole.length) {
+  if (q && !articole.length && !dinBara) {
     wrap.append(el('div', { class: 'empty' }, el('p', { text: 'Niciun produs care să conțină „' + q + '”.' })));
   }
 }
@@ -1466,7 +1483,11 @@ function legaEvenimente() {
   inp.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); trimiteFormularAdaugare(); }
   });
-  inp.addEventListener('input', actualizeazaSugestii);
+  inp.addEventListener('input', () => {
+    ui.qCompozitor = inp.value;
+    actualizeazaSugestii();
+    randeazaArticole();
+  });
   inp.addEventListener('focus', actualizeazaSugestii);
   inp.addEventListener('blur', () => setTimeout(() => { $('#suggestions').hidden = true; }, 180));
 
@@ -1536,9 +1557,11 @@ function trimiteFormularAdaugare() {
   const text = inp.value.trim();
   if (!text) { inp.focus(); return; }
   const qty = $('#newQty').value.trim();
-  adaugaArticol(text, qty, ui.unit);
+  // golim bara INAINTE de adaugare, ca lista sa se afiseze intreaga, nu filtrata
   inp.value = '';
+  ui.qCompozitor = '';
   $('#newQty').value = '';
+  adaugaArticol(text, qty, ui.unit);
   sugServer = [];
   actualizeazaSugestii();
   inp.focus();

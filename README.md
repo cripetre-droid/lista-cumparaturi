@@ -16,6 +16,7 @@ când revine semnalul.
 |---|---|
 | **Liste** | oricâte (Mega, Farmacie, Piață…), fiecare cu culoarea ei, reordonabile prin tragere |
 | **Produse** | bifare cu tăierea textului, cantitate + unitate, notă, reordonare, mutare în altă listă |
+| **Căutare în bara de adăugare** | pe măsură ce scrii un produs, lista se filtrează singură, ca să vezi dacă îl ai deja |
 | **Căutare** | în lista curentă și **global** (caută produsul în toate listele, îți spune în care e) |
 | **Undo / Redo** | orice acțiune se poate anula: buton în bara de sus, „ANULEAZĂ” pe notificare, `Ctrl+Z` |
 | **Cantități** | scrii „2 kg cartofi" și le desparte singur; sau alegi cantitatea din bara de jos |

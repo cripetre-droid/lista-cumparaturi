@@ -598,6 +598,44 @@ await page.waitForSelector('#sheet:not([hidden])');
 verifica(await page.isVisible('#sheet .sheet-item:has-text("Leagă un card de fidelitate")'), 'optiunea exista si in meniul de pe ecranul cu liste');
 await page.keyboard.press('Escape');
 
+console.log('32. Cautare in lista chiar din bara de adaugare');
+await page.goto(BAZA, { waitUntil: 'networkidle' });
+await page.waitForTimeout(800);
+await page.click('.list-card:has-text("Mega")');
+await page.waitForSelector('#screenItems:not(.hidden)');
+const totalProduse = await page.locator('.item').count();
+await page.fill('#newItem', 'lap');
+await page.waitForTimeout(400);
+verifica((await page.locator('.item').count()) === 1, 'scrisul "lap" filtreaza lista la un produs (din ' + totalProduse + ')');
+verifica((await page.textContent('#itemsStats')).includes('în listă pentru'), 'scrie cate produse s-au gasit: ' + (await page.textContent('#itemsStats')).trim());
+verifica((await page.locator('.item mark').count()) > 0, 'partea gasita e evidentiata');
+await shot(page, 'cautare-din-bara');
+
+await page.fill('#newItem', '2 kg cart');
+await page.waitForTimeout(400);
+verifica((await page.locator('.item:has-text("cartofi")').count()) === 1, 'cauta dupa nume chiar daca scrii si cantitatea ("2 kg cart")');
+
+await page.fill('#newItem', 'banane rosii');
+await page.waitForTimeout(400);
+verifica((await page.locator('.item').count()) === 0, 'un produs inexistent ("banane rosii") nu potriveste nimic');
+verifica((await page.textContent('#itemsStats')).includes('nu e în listă'), 'te anunta ca nu e in lista si ce sa faci');
+
+await page.click('#btnAdd');
+await page.waitForTimeout(500);
+verifica((await page.locator('.item').count()) === totalProduse + 1, 'dupa adaugare lista revine intreaga, cu produsul nou');
+verifica((await page.inputValue('#newItem')) === '', 'bara de adaugare s-a golit');
+
+// cautarea din bara nu se incurca cu cea din lupa
+await page.click('#btnSearchItems');
+await page.fill('#qItems', 'unt');
+await page.waitForTimeout(300);
+await page.fill('#newItem', 'lap');
+await page.waitForTimeout(400);
+verifica((await page.locator('.item:has-text("Unt")').count()) === 1, 'cand cauti cu lupa, aceea ramane cautarea principala');
+await page.click('#btnSearchItems');
+await page.fill('#newItem', '');
+await page.waitForTimeout(400);
+
 console.log('29. Pagini cerute de Google Play');
 {
   const r1 = await fetch(BAZA + '/confidentialitate.html');

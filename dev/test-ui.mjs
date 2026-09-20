@@ -636,6 +636,25 @@ await page.click('#btnSearchItems');
 await page.fill('#newItem', '');
 await page.waitForTimeout(400);
 
+console.log('33. Cu tastatura pe ecran, bara de sus si produsul raman vizibile');
+await page.fill('#newItem', 'lap');
+await page.waitForTimeout(400);
+// simulam tastatura: inaltimea vizibila scade la 420 px
+await page.evaluate(() => document.documentElement.style.setProperty('--h-ecran', '420px'));
+await page.waitForTimeout(300);
+const asezare = await page.evaluate(() => {
+  const dr = (sel) => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return { sus: Math.round(r.top), jos: Math.round(r.bottom) }; };
+  return { bara: dr('#screenItems .appbar'), produs: dr('#itemsWrap .item'), compozitor: dr('#composer'), ecran: dr('#screenItems') };
+});
+verifica(asezare.ecran && asezare.ecran.jos === 420, 'ecranul se potriveste pe inaltimea ramasa (' + (asezare.ecran && asezare.ecran.jos) + ' px)');
+verifica(asezare.bara && asezare.bara.sus >= 0 && asezare.bara.jos <= 420, 'bara de sus ramane vizibila (' + JSON.stringify(asezare.bara) + ')');
+verifica(asezare.compozitor && asezare.compozitor.jos <= 421, 'bara de adaugare sta deasupra tastaturii (' + JSON.stringify(asezare.compozitor) + ')');
+verifica(asezare.produs && asezare.produs.jos <= asezare.compozitor.sus, 'produsul gasit se vede intre ele (' + JSON.stringify(asezare.produs) + ')');
+await shot(page, 'cu-tastatura');
+await page.evaluate(() => document.documentElement.style.removeProperty('--h-ecran'));
+await page.fill('#newItem', '');
+await page.waitForTimeout(300);
+
 console.log('29. Pagini cerute de Google Play');
 {
   const r1 = await fetch(BAZA + '/confidentialitate.html');

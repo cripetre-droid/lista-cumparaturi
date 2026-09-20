@@ -103,8 +103,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; border: none; background: none; }
 
 /* ---------- ecrane ---------- */
+/* --h-ecran = cat se vede efectiv (cand urca tastatura, mai putin).
+   Fara asta, pe telefon bara de sus iese din ecran si produsul cautat nu se vede. */
 .screen {
-  position: fixed; inset: 0;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--h-ecran, 100%);
   display: flex; flex-direction: column;
   background: var(--bg);
 }
@@ -892,7 +896,9 @@ body.cu-tabbar .fab { bottom: calc(82px + var(--safe-b)); }
 
 /* ---------- panouri pe tot ecranul ---------- */
 .panou {
-  position: fixed; inset: 0;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--h-ecran, 100%);
   z-index: 45;
   background: var(--bg);
   display: flex; flex-direction: column;

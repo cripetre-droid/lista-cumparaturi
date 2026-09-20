@@ -40,10 +40,41 @@ const ui = {
 };
 
 /* =========================================================
+   INALTIMEA VIZIBILA (tastatura de pe telefon)
+   ========================================================= */
+
+/* Cand urca tastatura, unele browsere micsoreaza doar zona vizibila, nu si pagina:
+   ecranele noastre (fixate) raman inalte cat tot telefonul, bara de sus iese sus,
+   iar randurile de jos ajung sub tastatura. Masuram cat se vede si potrivim ecranele. */
+function urmaresteInaltimea() {
+  const vv = window.visualViewport;
+
+  const potriveste = () => {
+    const h = vv ? Math.round(vv.height) : window.innerHeight;
+    document.documentElement.style.setProperty('--h-ecran', h + 'px');
+    // daca browserul a derulat pagina ca sa arate campul, o aducem inapoi:
+    // ecranul e deja micsorat, deci campul se vede oricum
+    if (vv && vv.offsetTop > 0) window.scrollTo(0, 0);
+  };
+
+  potriveste();
+  if (vv) {
+    vv.addEventListener('resize', potriveste);
+    vv.addEventListener('scroll', potriveste);
+  }
+  window.addEventListener('resize', potriveste);
+  window.addEventListener('orientationchange', () => setTimeout(potriveste, 250));
+  // la focalizarea unui camp, tastatura urca dupa un moment
+  document.addEventListener('focusin', () => setTimeout(potriveste, 320));
+  document.addEventListener('focusout', () => setTimeout(potriveste, 320));
+}
+
+/* =========================================================
    PORNIRE
    ========================================================= */
 
 function boot() {
+  urmaresteInaltimea();
   load();
   aplicaTema(state.theme || 'auto');
   initCarduri({ randeaza, aratUndo, deschideLista, deschideCard, inapoiLaCarduri });
@@ -438,6 +469,10 @@ function randeazaArticole() {
     wrap.append(el('div', { class: 'divider', text: 'În coș (' + cumparate.length + ')' }));
     for (const it of cumparate) wrap.append(randRand(it, q));
   }
+
+  // cand se schimba cautarea din bara, lista se aduce la inceput, ca rezultatul sa se vada
+  if (dinBara && ui._ultimaCautareBara !== q) $('#itemsContent').scrollTop = 0;
+  ui._ultimaCautareBara = dinBara ? q : '';
 
   $('#itemsEmpty').hidden = toate.length > 0;
   if (q && !articole.length && !dinBara) {

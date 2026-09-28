@@ -21,7 +21,8 @@ const MESAJE = {
   parola_gresita: 'Parola nu este corectă.',
   stergere_esuata: 'Contul nu a putut fi șters. Încearcă din nou.',
   inregistrari_oprite: 'Înregistrările sunt oprite pe acest server.',
-  cod_inregistrare_gresit: 'Codul de înregistrare nu este corect.',
+  email_netrimis: 'Nu am putut trimite e-mailul. Încearcă mai târziu sau scrie-ne.',
+  link_invalid: 'Linkul nu mai e valabil. Cere altul de la „Am uitat parola”.',
   cod_invalid: 'Codul nu este valid sau a expirat.',
   prea_multe_incercari: 'Prea multe încercări. Mai așteaptă 15 minute.',
   lista_inexistenta: 'Lista nu mai există.',
@@ -79,6 +80,7 @@ export const api = {
   logout: () => call('auth.php?a=logout'),
   changePassword: (d) => call('auth.php?a=password', { body: d }),
   deleteAccount: (password) => call('auth.php?a=delete', { body: { password } }),
+  resetCere: (email) => call('auth.php?a=reset_cere', { body: { email }, timeout: 25000 }),
 
   sync: (d) => call('sync.php', { body: d, timeout: 30000 }),
   ping: () => call('ping.php', { method: 'GET', timeout: 8000 }),

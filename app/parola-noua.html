@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Parolă nouă — Lista de cumpărături</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #F2F6FC; --card: #FFFFFF; --text: #0E1B2C; --dim: #5A6B80; --line: #DDE7F3;
+    --primary: #1B65C0; --danger: #C8384A; --ok: #1E8E63;
+    --bar: linear-gradient(120deg, #14509D 0%, #1B65C0 55%, #2979D6 100%);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0A121D; --card: #142234; --text: #E6EEF9; --dim: #9DB0C7; --line: #223349; --primary: #6AA8F0; --danger: #E4697A; --ok: #45BE90; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100%; background: var(--bar); color: var(--text);
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+         display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .card { width: min(100%, 400px); background: var(--card); border-radius: 22px; padding: 26px 24px 22px;
+          box-shadow: 0 12px 34px rgba(11,46,92,.26); }
+  .logo { width: 68px; height: 68px; margin: 0 auto 14px; border-radius: 20px; background: var(--bar);
+          display: grid; place-items: center; color: #fff; }
+  h1 { margin: 0 0 6px; font-size: 21px; text-align: center; }
+  .sub { margin: 0 0 20px; text-align: center; color: var(--dim); font-size: 14.5px; }
+  label { display: block; margin-bottom: 14px; }
+  label span { display: block; font-size: 13px; font-weight: 600; color: var(--dim); margin-bottom: 6px; }
+  input { width: 100%; height: 46px; border: 1.5px solid var(--line); border-radius: 12px; padding: 0 14px;
+          background: var(--bg); color: var(--text); font: inherit; outline: none; }
+  input:focus { border-color: var(--primary); }
+  button { width: 100%; height: 50px; border: 0; border-radius: 14px; background: var(--bar); color: #fff;
+           font: 700 16px system-ui, sans-serif; cursor: pointer; }
+  button[disabled] { opacity: .6; cursor: default; }
+  .mesaj { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; font-size: 14.5px; }
+  .eroare { background: rgba(200,56,74,.12); color: var(--danger); }
+  .gata { background: rgba(30,142,99,.12); color: var(--ok); }
+  .link { display: block; margin-top: 16px; text-align: center; color: var(--primary); font-size: 14.5px;
+          font-weight: 600; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="40" height="40"><path fill="currentColor" d="M12.65 10A6 6 0 1 0 7 16a5.9 5.9 0 0 0 5.65-4H17v4h4v-4h2v-2H12.65zM7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/></svg>
+  </div>
+  <h1>Alege o parolă nouă</h1>
+  <p class="sub" id="sub">Pentru contul tău din „Lista de cumpărături”.</p>
+
+  <form id="f" autocomplete="on">
+    <p class="mesaj eroare" id="eroare" hidden></p>
+    <label><span>Parola nouă</span><input type="password" id="p1" required minlength="8" autocomplete="new-password" placeholder="minim 8 caractere"></label>
+    <label><span>Încă o dată</span><input type="password" id="p2" required minlength="8" autocomplete="new-password"></label>
+    <button type="submit" id="buton">Salvează parola</button>
+  </form>
+
+  <div id="gata" hidden>
+    <p class="mesaj gata">Parola a fost schimbată. Poți intra în cont cu ea, pe toate telefoanele.</p>
+    <a class="link" href="./">Deschide aplicația</a>
+  </div>
+</div>
+<script>
+(function () {
+  var MESAJE = {
+    parola_prea_scurta: 'Parola trebuie să aibă minim 8 caractere.',
+    link_invalid: 'Linkul nu mai e valabil. Cere altul din aplicație, de la „Am uitat parola”.',
+    prea_multe_incercari: 'Prea multe încercări. Mai așteaptă 15 minute.',
+  };
+  var f = document.getElementById('f');
+  var eroare = document.getElementById('eroare');
+  var buton = document.getElementById('buton');
+
+  // jetonul vine din link: parola-noua.html#t=...
+  var token = (location.hash.match(/[#&]t=([a-f0-9]{64})/) || [])[1] || '';
+  if (!token) {
+    f.hidden = true;
+    eroare.textContent = 'Link incomplet. Deschide linkul exact așa cum a venit pe e-mail.';
+    eroare.hidden = false;
+    document.querySelector('.card').append(eroare);
+  }
+
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    eroare.hidden = true;
+    var p1 = document.getElementById('p1').value;
+    var p2 = document.getElementById('p2').value;
+    if (p1.length < 8) { eroare.textContent = MESAJE.parola_prea_scurta; eroare.hidden = false; return; }
+    if (p1 !== p2) { eroare.textContent = 'Cele două parole nu sunt la fel.'; eroare.hidden = false; return; }
+
+    buton.disabled = true;
+    buton.textContent = 'Un moment...';
+    fetch('api/auth.php?a=reset_pune', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token, password: p1 }), credentials: 'omit', cache: 'no-store',
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) {
+        if (!r.ok || d.error) throw new Error(d.error || 'eroare_' + r.status);
+        f.hidden = true;
+        document.getElementById('sub').hidden = true;
+        document.getElementById('gata').hidden = false;
+        history.replaceState(null, '', location.pathname);   // jetonul nu mai ramane in adresa
+      });
+    }).catch(function (err) {
+      eroare.textContent = MESAJE[err.message] || 'Nu am putut schimba parola (' + err.message + ').';
+      eroare.hidden = false;
+      buton.disabled = false;
+      buton.textContent = 'Salvează parola';
+    });
+  });
+})();
+</script>
+</body>
+</html>

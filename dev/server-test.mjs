@@ -124,6 +124,30 @@ const server = http.createServer(async (req, res) => {
       return json(res, { token: t, user: { id: u.id, email: u.email, name: u.name } });
     }
 
+    if (fisier === 'auth.php' && a === 'reset_cere') {
+      const u = db.users.find((x) => x.email === String(body.email || '').toLowerCase());
+      const raspuns = { ok: true };
+      if (u) {
+        const token = crypto.randomBytes(32).toString('hex');
+        db.resets = db.resets || new Map();
+        db.resets.set(token, { user: u.id, expira: acum() + 3600000 });
+        // DOAR in serverul de test: linkul se intoarce, ca testul sa poata continua
+        raspuns._link_test = 'parola-noua.html#t=' + token;
+      }
+      return json(res, raspuns);
+    }
+    if (fisier === 'auth.php' && a === 'reset_pune') {
+      const r = (db.resets || new Map()).get(String(body.token || ''));
+      if (!r || r.expira < acum()) return json(res, { error: 'link_invalid' }, 400);
+      if (String(body.password || '').length < 8) return json(res, { error: 'parola_prea_scurta' }, 400);
+      const u = db.users.find((x) => x.id === r.user);
+      if (!u) return json(res, { error: 'link_invalid' }, 400);
+      u.pass = body.password;
+      db.resets.delete(String(body.token));
+      for (const [t, id] of db.tokens) if (id === u.id) db.tokens.delete(t);
+      return json(res, { ok: true });
+    }
+
     if (fisier === 'auth.php' && a === 'login') {
       const u = db.users.find((x) => x.email === String(body.email || '').toLowerCase() && x.pass === body.password);
       if (!u) return json(res, { error: 'date_gresite' }, 401);

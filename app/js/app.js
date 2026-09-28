@@ -138,7 +138,7 @@ function setAuthMode(mode) {
   ui.authMode = mode;
   const inreg = mode === 'register';
   $('#fieldName').hidden = !inreg;
-  $('#fieldCode').hidden = !inreg;
+  $('#btnUitatParola').hidden = inreg;
   $('#authSubmit').textContent = inreg ? 'Creează contul' : 'Intră în cont';
   $('#authSub').textContent = inreg
     ? 'Contul îți ține listele pe toate telefoanele.'
@@ -161,7 +161,6 @@ async function trimiteAuth(e) {
     email: $('#inEmail').value.trim(),
     password: $('#inPass').value,
     name: $('#inName').value.trim(),
-    code: $('#inCode').value.trim(),
   };
 
   try {
@@ -179,6 +178,51 @@ async function trimiteAuth(e) {
     btn.disabled = false;
     btn.textContent = textVechi;
   }
+}
+
+/** „Am uitat parola”: cerem un link pe e-mail. */
+function amUitatParola() {
+  dialogHtml('Am uitat parola', (box) => {
+    box.append(el('p', { text: 'Scrie adresa de e-mail a contului. Îți trimitem un link cu care îți alegi o parolă nouă.' }));
+    const email = el('input', { class: 'dlg-input', type: 'email', placeholder: 'nume@exemplu.ro', autocomplete: 'username', id: 'resetEmail', value: $('#inEmail').value.trim() });
+    const err = el('p', { class: 'auth-error', hidden: 'hidden' });
+    const btn = el('button', {
+      class: 'btn-text', type: 'button', text: 'Trimite linkul', id: 'resetTrimite',
+      onclick: async () => {
+        const adresa = email.value.trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(adresa)) {
+          err.textContent = 'Scrie o adresă de e-mail validă.';
+          err.hidden = false;
+          return;
+        }
+        btn.disabled = true;
+        const textVechi = btn.textContent;
+        btn.textContent = 'Trimit...';
+        try {
+          await api.resetCere(adresa);
+          closeDialog();
+          dialogHtml('Verifică e-mailul', (b2) => {
+            b2.append(el('p', { html: 'Dacă există un cont cu <b>' + escapeHtml(adresa) + '</b>, ți-am trimis un link pentru parola nouă. E valabil o oră.<br><br>Dacă nu vezi mesajul, caută și în Spam.' }));
+            b2.append(el('div', { class: 'dialog-actions' },
+              el('button', { class: 'btn-text', type: 'button', text: 'Am înțeles', onclick: () => closeDialog() })));
+          });
+        } catch (e) {
+          err.textContent = mesajEroare(e);
+          err.hidden = false;
+          btn.disabled = false;
+          btn.textContent = textVechi;
+        }
+      },
+    });
+    box.append(
+      el('div', { class: 'field' }, el('span', { text: 'E-mail' }), email),
+      err,
+      el('div', { class: 'dialog-actions' },
+        el('button', { class: 'btn-text', type: 'button', text: 'Renunță', onclick: () => closeDialog() }),
+        btn),
+    );
+    setTimeout(() => email.focus(), 80);
+  });
 }
 
 function deconectatDeServer() {
@@ -1474,6 +1518,7 @@ function legaEvenimente() {
   // autentificare
   $('#authForm').addEventListener('submit', trimiteAuth);
   $('#toggleMode').addEventListener('click', () => setAuthMode(ui.authMode === 'login' ? 'register' : 'login'));
+  $('#btnUitatParola').addEventListener('click', amUitatParola);
 
   // ecranul cu liste
   $('#fabAddList').addEventListener('click', listaNoua);

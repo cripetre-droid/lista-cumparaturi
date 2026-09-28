@@ -1,10 +1,11 @@
 <?php
 /**
  * Conturi: inregistrare, autentificare, cine sunt, delogare, schimbare parola.
- * Endpoint: auth.php?a=register|login|me|logout|password|delete
+ * Endpoint: auth.php?a=register|login|me|logout|password|delete|reset_cere|reset_pune
  */
 
 require __DIR__ . '/lib.php';
+require __DIR__ . '/mail.php';
 cors();
 
 $a = (string) ($_GET['a'] ?? '');
@@ -49,9 +50,6 @@ switch ($a) {
         if (empty($c['allow_signup'])) {
             fail('inregistrari_oprite', 403);
         }
-        if (!empty($c['signup_code']) && !hash_equals((string) $c['signup_code'], (string) param('code', ''))) {
-            fail('cod_inregistrare_gresit', 403);
-        }
         $email = mb_strtolower(clean_text(param('email', ''), 190));
         $pass  = (string) param('password', '');
         $name  = clean_text(param('name', ''), 80);
@@ -85,6 +83,76 @@ switch ($a) {
             fail('date_gresite', 401);
         }
         json_out(['token' => issue_token($u['id']), 'user' => ['id' => $u['id'], 'email' => $u['email'], 'name' => $u['name']]]);
+    }
+
+    case 'reset_cere': {
+        // "Am uitat parola": trimite un link pe e-mail. Raspunsul e acelasi si daca
+        // adresa nu exista, ca sa nu se poata afla ce conturi sunt inregistrate.
+        throttle_login();
+        asigura_schema_resetare();
+        $email = mb_strtolower(clean_text(param('email', ''), 190));
+        $raspuns = ['ok' => true];
+
+        $st = db()->prepare('SELECT id, name FROM users WHERE email = ?');
+        $st->execute([$email]);
+        $u = $st->fetch();
+
+        if ($u) {
+            // cel mult 3 cereri pe ora pentru acelasi cont
+            $st = db()->prepare('SELECT COUNT(*) FROM password_resets WHERE user_id = ? AND created_at > ?');
+            $st->execute([$u['id'], now_ms() - 3600000]);
+            if ((int) $st->fetchColumn() >= 3) {
+                note_failed_login($email);
+                fail('prea_multe_incercari', 429);
+            }
+
+            $token = bin2hex(random_bytes(32));
+            db()->prepare('INSERT INTO password_resets (token_hash, user_id, created_at, expires_at, ip) VALUES (?,?,?,?,?)')
+                ->execute([hash('sha256', $token), $u['id'], now_ms(), now_ms() + 3600000, client_ip_bin()]);
+
+            $link = adresa_aplicatiei() . 'parola-noua.html#t=' . $token;
+            [$html, $text] = email_resetare((string) $u['name'], $link);
+            [$trimis, $explicatie] = trimite_email($email, 'Parolă nouă — Lista de cumpărături', $html, $text);
+            if (!$trimis) {
+                error_log('resetare parola, e-mail netrimis: ' . $explicatie);
+                fail('email_netrimis', 500);
+            }
+        }
+
+        // curatenie: linkurile expirate nu mai au ce cauta in tabel
+        db()->prepare('DELETE FROM password_resets WHERE expires_at < ?')->execute([now_ms() - 86400000]);
+        json_out($raspuns);
+    }
+
+    case 'reset_pune': {
+        asigura_schema_resetare();
+        $token = preg_replace('/[^a-f0-9]/', '', (string) param('token', ''));
+        $noua = (string) param('password', '');
+        if (mb_strlen($noua) < 8) {
+            fail('parola_prea_scurta');
+        }
+        if (strlen($token) !== 64) {
+            fail('link_invalid', 400);
+        }
+        $st = db()->prepare('SELECT user_id FROM password_resets WHERE token_hash = ? AND used_at = 0 AND expires_at > ?');
+        $st->execute([hash('sha256', $token), now_ms()]);
+        $userId = $st->fetchColumn();
+        if (!$userId) {
+            fail('link_invalid', 400);
+        }
+
+        db()->prepare('UPDATE users SET pass_hash = ? WHERE id = ?')
+            ->execute([password_hash($noua, PASSWORD_DEFAULT), $userId]);
+        db()->prepare('UPDATE password_resets SET used_at = ? WHERE token_hash = ?')->execute([now_ms(), hash('sha256', $token)]);
+        // orice alt link de resetare si toate sesiunile deschise devin inutile
+        db()->prepare('DELETE FROM password_resets WHERE user_id = ? AND used_at = 0')->execute([$userId]);
+        db()->prepare('DELETE FROM tokens WHERE user_id = ?')->execute([$userId]);
+
+        $st = db()->prepare('SELECT email FROM users WHERE id = ?');
+        $st->execute([$userId]);
+        db()->prepare('DELETE FROM login_attempts WHERE email = ?')->execute([(string) $st->fetchColumn()]);
+
+        json_out(['ok' => true]);
     }
 
     case 'me': {

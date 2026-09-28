@@ -31,9 +31,15 @@ return [
     // true  = oricine poate crea cont (lasa-l true doar cat isi fac ai tai conturile)
     // false = inregistrarile sunt oprite
     'allow_signup' => true,
-    // Daca vrei sa lasi signup deschis dar protejat, pune aici un cod;
-    // gol = fara cod. Codul se cere la inregistrare.
-    'signup_code' => '',
+
+    // --- trimiterea e-mailului pentru "Am uitat parola" ---
+    // Casuta trebuie sa existe pe server (cPanel > Email Accounts), altfel Exim
+    // refuza expeditorul. mail() simplu NU merge catre Gmail de pe Romarg.
+    'smtp_host' => 'localhost',
+    'smtp_port' => 587,
+    'smtp_user' => 'lista@vireo.ro',
+    'smtp_pass' => 'PAROLA_CASUTEI',
+    'smtp_nume' => 'Lista de cumpărături',
 
     // --- cheie pentru install.php (creare tabele). Schimb-o si sterge install.php dupa instalare ---
     'install_key' => 'schimba-cheia-asta',

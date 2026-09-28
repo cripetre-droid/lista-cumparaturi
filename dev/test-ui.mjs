@@ -715,6 +715,72 @@ await pw.screenshot({ path: path.join(CAPTURI, '96-sterge-cont-web.png'), fullPa
 const reLogin2 = await fetch(BAZA + '/api/auth.php?a=login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'ana@vireo.ro', password: 'parolatest123' }) });
 verifica(reLogin2.status === 401, 'contul sters de pe web nu se mai poate autentifica');
 
+console.log('34. Am uitat parola (link pe e-mail) si fara cod de inregistrare');
+await page.goto(BAZA, { waitUntil: 'networkidle' });
+await page.waitForTimeout(500);
+await page.click('#toggleMode');
+verifica(!(await page.isVisible('#fieldCode')) && (await page.locator('#inCode').count()) === 0, 'la cont nou nu mai exista camp "Cod de inregistrare"');
+verifica(!(await page.isVisible('#btnUitatParola')), '"Am uitat parola" nu apare la crearea contului');
+await page.fill('#inName', 'Uituc');
+await page.fill('#inEmail', 'uituc@vireo.ro');
+await page.fill('#inPass', 'parolaveche1');
+await page.click('#authSubmit');
+await page.waitForSelector('#screenLists:not(.hidden)', { timeout: 8000 });
+await page.click('#btnMenuLists');
+await page.waitForSelector('#sheet:not([hidden])');
+await page.click('#sheet .sheet-item:has-text("Ieși din cont")');
+await page.waitForSelector('#auth:not(.hidden)', { timeout: 5000 });
+verifica(await page.isVisible('#btnUitatParola'), '"Am uitat parola" apare la autentificare');
+
+await page.click('#btnUitatParola');
+await page.waitForSelector('#resetEmail');
+await page.fill('#resetEmail', 'uituc@vireo.ro');
+const raspunsReset = page.waitForResponse((r) => r.url().includes('a=reset_cere'));
+await page.click('#resetTrimite');
+const dateReset = await (await raspunsReset).json();
+await page.waitForTimeout(400);
+verifica(await page.isVisible('#dialog'), 'te anunta sa verifici e-mailul');
+await shot(page, 'am-uitat-parola');
+await page.click('#dialog .dialog-actions button');
+verifica(!!dateReset._link_test, 'serverul a pregatit linkul de resetare');
+
+// linkul primit pe e-mail, deschis ca din inbox
+const pr = await ctx.newPage();
+await pr.goto(BAZA + '/' + dateReset._link_test, { waitUntil: 'networkidle' });
+await pr.fill('#p1', 'parolanoua456');
+await pr.fill('#p2', 'altceva999');
+await pr.click('#buton');
+await pr.waitForTimeout(300);
+verifica(await pr.isVisible('#eroare'), 'doua parole diferite nu sunt acceptate');
+await pr.fill('#p2', 'parolanoua456');
+await pr.click('#buton');
+await pr.waitForSelector('#gata:not([hidden])', { timeout: 5000 });
+verifica(await pr.isVisible('#gata'), 'pagina confirma parola noua');
+await pr.screenshot({ path: path.join(CAPTURI, '95-parola-noua.png'), fullPage: true });
+verifica(!/t=/.test(await pr.evaluate(() => location.hash)), 'jetonul nu mai ramane in adresa paginii');
+
+await pr.close();
+
+// linkul nu mai merge a doua oara (fila noua: altfel browserul nu reincarca pagina)
+const pr2 = await ctx.newPage();
+await pr2.goto(BAZA + '/' + dateReset._link_test, { waitUntil: 'networkidle' });
+await pr2.fill('#p1', 'altaparola789');
+await pr2.fill('#p2', 'altaparola789');
+await pr2.click('#buton');
+await pr2.waitForTimeout(800);
+verifica(await pr2.isVisible('#eroare'), 'acelasi link nu mai poate fi folosit inca o data');
+verifica(/nu mai e valabil/.test(await pr2.textContent('#eroare')), 'mesajul spune sa ceara alt link');
+await pr2.close();
+
+// parola veche nu mai merge, cea noua da
+const vechi = await fetch(BAZA + '/api/auth.php?a=login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'uituc@vireo.ro', password: 'parolaveche1' }) });
+verifica(vechi.status === 401, 'parola veche nu mai merge');
+await page.fill('#inEmail', 'uituc@vireo.ro');
+await page.fill('#inPass', 'parolanoua456');
+await page.click('#authSubmit');
+await page.waitForSelector('#screenLists:not(.hidden)', { timeout: 8000 });
+verifica(true, 'intri in cont cu parola noua');
+
 await browser.close();
 srv.kill();
 

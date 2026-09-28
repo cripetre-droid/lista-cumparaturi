@@ -317,6 +317,48 @@ function asigura_schema_carduri(): void
     $gata = true;
 }
 
+/** Tabelul pentru resetarea parolei; se creeaza singur la prima cerere. */
+function asigura_schema_resetare(): void
+{
+    static $gata = false;
+    if ($gata) {
+        return;
+    }
+    try {
+        db()->query('SELECT 1 FROM password_resets LIMIT 1');
+        $gata = true;
+        return;
+    } catch (PDOException $e) {
+        // tabelul lipseste
+    }
+    db()->exec(
+        "CREATE TABLE IF NOT EXISTS password_resets (
+            token_hash CHAR(64) NOT NULL PRIMARY KEY,
+            user_id CHAR(32) NOT NULL,
+            created_at BIGINT NOT NULL,
+            expires_at BIGINT NOT NULL,
+            used_at BIGINT NOT NULL DEFAULT 0,
+            ip VARBINARY(16) NULL,
+            INDEX (user_id),
+            INDEX (expires_at),
+            CONSTRAINT fk_reset_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+    $gata = true;
+}
+
+/** Adresa aplicatiei, pentru linkurile din e-mail (prima origine permisa). */
+function adresa_aplicatiei(): string
+{
+    $origini = cfg()['allowed_origins'] ?? [];
+    foreach ($origini as $o) {
+        if (str_contains($o, 'vireo.ro')) {
+            return rtrim($o, '/') . '/';
+        }
+    }
+    return $origini ? rtrim($origini[0], '/') . '/' : 'https://lista.vireo.ro/';
+}
+
 /** Toate id-urile de carduri la care are acces utilizatorul. */
 function accessible_card_ids(string $userId): array
 {

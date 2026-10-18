@@ -824,6 +824,22 @@ function adaugaArticol(textBrut, qtyManual, unitManual) {
     return;
   }
 
+  // daca e deja bifat (in cos), il readucem in lista in loc sa facem un duplicat
+  const bifat = listItems(ui.listId).find((i) => norm(i.name) === norm(nume) && i.done);
+  if (bifat) {
+    mutate('Am readus produsul în listă', (m) => {
+      const o = m.item(bifat.id);
+      o.done = 0;
+      o.position = nextPosition(ui.listId);
+      if (qty) { o.qty = qty; o.unit = unit; }
+    });
+    rememberProduct(nume, unit);
+    syncSoon();
+    randeaza();
+    evidentiaza(bifat.id);
+    return;
+  }
+
   const id = uid();
   mutate('Am adăugat produsul', (m) => {
     m.newItem({

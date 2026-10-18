@@ -185,6 +185,17 @@ if (nrSug) {
   await page.locator('.sug').first().click();
   await page.waitForTimeout(300);
   verifica((await page.locator('.item').count()) === 1, 'produsul din sugestie a fost adaugat');
+
+  // bifat (in cos) + ales din nou din sugestii -> revine in lista, fara duplicat
+  const numeSug = (await page.locator('.item .item-name').first().innerText()).trim();
+  await page.locator('.item .check').first().click();
+  await page.waitForTimeout(300);
+  await page.fill('#newItem', numeSug.slice(0, 3));
+  await page.waitForTimeout(900);
+  await page.locator('.sug', { hasText: numeSug }).first().click();
+  await page.waitForTimeout(300);
+  verifica((await page.locator('.item').count()) === 1, 'produsul bifat ales din sugestii nu se dubleaza');
+  verifica((await page.locator('.item.done').count()) === 0, 'produsul bifat a revenit in lista de cumparat');
 }
 
 console.log('9. Cautare globala din ecranul cu liste');

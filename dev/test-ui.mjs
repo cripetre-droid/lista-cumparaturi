@@ -647,6 +647,22 @@ await page.click('#btnSearchItems');
 await page.fill('#newItem', '');
 await page.waitForTimeout(400);
 
+// produsul gasit in cos din bara si debifat -> bara se goleste, lista revine intreaga
+const totalInainte = await page.locator('.item').count();
+await page.fill('#newItem', 'unt');
+await page.waitForTimeout(400);
+if (!(await page.locator('.item.done:has-text("Unt")').count())) {
+  await page.click('.item:has-text("Unt")');
+  await page.waitForTimeout(300);
+}
+verifica((await page.inputValue('#newItem')) === 'unt', 'bifarea nu goleste bara');
+await page.click('.item.done:has-text("Unt")');
+await page.waitForTimeout(400);
+verifica((await page.inputValue('#newItem')) === '', 'debifarea produsului gasit din bara goleste bara');
+verifica((await page.locator('.item').count()) === totalInainte, 'dupa debifare se vede toata lista (' + totalInainte + ')');
+verifica((await page.locator('.item:not(.done):has-text("Unt")').count()) === 1, 'produsul debifat e in lista de cumparat');
+await shot(page, 'debifare-din-bara');
+
 console.log('33. Cu tastatura pe ecran, bara de sus si produsul raman vizibile');
 await page.fill('#newItem', 'lap');
 await page.waitForTimeout(400);

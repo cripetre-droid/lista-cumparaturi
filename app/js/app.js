@@ -874,6 +874,13 @@ function comutaBifa(id) {
     o.done = bifat ? 1 : 0;
   });
   if (navigator.vibrate) navigator.vibrate(bifat ? 12 : 6);
+  // l-ai gasit in cos cautand din bara si l-ai debifat: golim bara, ca sa se vada toata lista
+  if (!bifat && ui.qCompozitor.trim()) {
+    $('#newItem').value = '';
+    ui.qCompozitor = '';
+    $('#newQty').value = '';
+    $('#suggestions').hidden = true;
+  }
   syncSoon();
   randeaza();
 }
